@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     jwt_access_expire_minutes: int = 15
     jwt_refresh_expire_days: int = 7
     fernet_key: str = "change-me-32-byte-base64-fernet-key=="
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://autoparts-lms.web.app,https://autoparts-lms.firebaseapp.com"
+    cookie_secure: bool = False
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     storage_path: str = "./storage"

@@ -3,6 +3,7 @@ from prisma import Prisma
 from prisma.enums import Role
 
 from app.core.audit import emit_audit
+from app.core.config import settings
 from app.core.deps import get_client_ip, get_current_user
 from app.core.security import (
     create_access_token,
@@ -41,8 +42,8 @@ async def login(payload: LoginRequest, request: Request, response: Response, db:
         key="refresh_token",
         value=refresh_value,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=settings.cookie_secure,
+        samesite="lax" if not settings.cookie_secure else "none",
         max_age=7 * 24 * 3600,
     )
 
@@ -91,7 +92,14 @@ async def refresh_token(request: Request, response: Response, db: Prisma = Depen
     )
 
     access_token = create_access_token({"sub": user.id, "role": user.role, "center_id": user.centerId})
-    response.set_cookie(key="refresh_token", value=new_refresh, httponly=True, samesite="lax", max_age=7 * 24 * 3600)
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax" if not settings.cookie_secure else "none",
+        max_age=7 * 24 * 3600,
+    )
 
     return TokenResponse(access_token=access_token, user=UserResponse(**serialize_user(user)))
 

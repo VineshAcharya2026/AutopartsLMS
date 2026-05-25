@@ -1,0 +1,26 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - docker/Dockerfile.api
+      - -t
+      - gcr.io/$PROJECT_ID/centercrm-api
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/centercrm-api
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - centercrm-api
+      - --image=gcr.io/$PROJECT_ID/centercrm-api
+      - --region=us-central1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8000
+      - --set-env-vars=COOKIE_SECURE=true,CORS_ORIGINS=https://autoparts-lms.web.app,https://autoparts-lms.firebaseapp.com
+      - --set-secrets=DATABASE_URL=centercrm-database-url:latest,JWT_SECRET=centercrm-jwt-secret:latest

@@ -1,6 +1,9 @@
 node_modules/
 .next/
 dist/
+out/
+.firebase/
+*.tsbuildinfo
 .env
 *.pyc
 __pycache__/

@@ -6,6 +6,8 @@
     "packages/*"
   ],
   "scripts": {
+    "build:firebase": "npm run build -w @centercrm/web",
+    "deploy:firebase": "npm run build:firebase && firebase deploy --only hosting",
     "dev:web": "npm run dev -w @centercrm/web",
     "dev:api": "cd apps/api && uvicorn app.main:app --reload --port 8000",
     "db:migrate": "npm run migrate --workspace=@centercrm/database",

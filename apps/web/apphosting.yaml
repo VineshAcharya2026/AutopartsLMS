@@ -1,0 +1,35 @@
+# Firebase App Hosting — CenterCRM web (monorepo)
+# rootDir in firebase.json = apps/web (YAML discovery only)
+# build/run commands execute from repository root.
+
+scripts:
+  buildCommand: npm ci && npm run build -w @centercrm/web
+  runCommand: node apps/web/.next/standalone/apps/web/server.js
+
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+  minInstances: 0
+  maxInstances: 4
+
+env:
+  - variable: PORT
+    value: "8080"
+    availability:
+      - RUNTIME
+  - variable: HOSTNAME
+    value: "0.0.0.0"
+    availability:
+      - RUNTIME
+  - variable: NEXT_PUBLIC_API_URL
+    value: /backend/api/v1
+    availability:
+      - BUILD
+      - RUNTIME
+  # Set to your Cloud Run / Render API origin (no trailing slash) before deploy
+  - variable: BACKEND_URL
+    value: https://REPLACE-WITH-YOUR-API-URL
+    availability:
+      - BUILD
+      - RUNTIME

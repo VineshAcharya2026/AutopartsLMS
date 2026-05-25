@@ -10,6 +10,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
+            enabled: typeof window !== "undefined",
             retry: 1,
             refetchOnWindowFocus: false,
           },

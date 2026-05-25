@@ -1,0 +1,36 @@
+# Render Blueprint — CenterCRM API + PostgreSQL
+# https://render.com/docs/blueprint-spec
+#
+# After deploy:
+# 1. Copy the web service URL (e.g. https://centercrm-api.onrender.com)
+# 2. Rebuild & redeploy Firebase frontend with that API URL (see docs/DEPLOYMENT.md)
+
+databases:
+  - name: centercrm-db
+    databaseName: centercrm
+    user: centercrm
+    plan: free
+
+services:
+  - type: web
+    name: centercrm-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./docker/Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: centercrm-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FERNET_KEY
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: CORS_ORIGINS
+        value: https://autoparts-lms.web.app,https://autoparts-lms.firebaseapp.com
+      - key: REDIS_URL
+        value: redis://127.0.0.1:6379/0

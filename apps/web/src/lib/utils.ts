@@ -5,13 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Same-origin proxy via Next.js rewrites — avoids CORS and "Failed to fetch" from cross-origin calls. */
+/** API base URL. Use NEXT_PUBLIC_API_URL in production builds; local dev uses /backend proxy. */
 export const API_URL =
-  typeof window !== "undefined"
-    ? "/backend/api/v1"
-    : process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" ? "/backend/api/v1" : "http://127.0.0.1:8000/api/v1");
 
-export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000/ws/notifications";
+export const WS_URL =
+  process.env.NEXT_PUBLIC_WS_URL ||
+  (typeof window !== "undefined"
+    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/backend/ws/notifications`
+    : "ws://127.0.0.1:8000/ws/notifications");
 
 export const LEAD_STATUSES = [
   "NEW",
