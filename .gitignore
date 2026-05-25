@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+.env
+*.pyc
+__pycache__/
+.venv/
+venv/
+storage/
+*.egg-info/
+.prisma/
+apps/api/prisma_client/
+.turbo/
+coverage/
+.pytest_cache/

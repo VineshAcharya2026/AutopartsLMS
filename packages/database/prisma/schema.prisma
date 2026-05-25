@@ -1,0 +1,467 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator py {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MASTER_ADMIN
+  ADMIN
+  AGENT
+}
+
+enum LeadStatus {
+  NEW
+  UNATTEMPTED
+  ATTEMPTED
+  FOLLOW_UP
+  INTERESTED
+  NOT_INTERESTED
+  CALLBACK
+  CONVERTED
+  LOST
+  SPAM
+}
+
+enum LeadSource {
+  WEBSITE_FORM
+  LANDING_PAGE
+  EMAIL
+  WEBHOOK
+  MANUAL
+  CSV
+  WHATSAPP
+}
+
+enum CommChannel {
+  SMS
+  EMAIL
+  CALL
+  WHATSAPP
+}
+
+enum CommDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum TrashEntityType {
+  LEAD
+  USER
+  CENTER
+  REMARK
+  ATTACHMENT
+}
+
+enum IntegrationType {
+  GMAIL
+  OUTLOOK
+  IMAP
+  WEBHOOK
+  FORM
+  LANDING
+  TWILIO
+  RESEND
+}
+
+enum ParseStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum DuplicateMatchType {
+  PHONE
+  EMAIL
+}
+
+enum NotificationType {
+  LEAD_ASSIGNED
+  LEAD_UPDATED
+  FOLLOW_UP_DUE
+  MESSAGE_RECEIVED
+  SYSTEM
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  role         Role
+  centerId     String?   @map("center_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  permissions  Json      @default("{}")
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  center              Center?           @relation(fields: [centerId], references: [id])
+  refreshTokens       RefreshToken[]
+  assignedLeadsAdmin  Lead[]            @relation("AssignedAdmin")
+  assignedLeadsAgent  Lead[]            @relation("AssignedAgent")
+  remarks             Remark[]
+  followUps           FollowUp[]
+  attachments         Attachment[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  trashRecords        TrashRecord[]     @relation("DeletedBy")
+  messageTemplates    MessageTemplate[]
+
+  @@index([email])
+  @@index([centerId])
+  @@index([role])
+  @@map("users")
+}
+
+model Center {
+  id        String    @id @default(uuid())
+  name      String
+  code      String    @unique
+  settings  Json      @default("{}")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  users           User[]
+  leads           Lead[]
+  integrations    Integration[]
+  routingRules    LeadRoutingRule[]
+  messageTemplates MessageTemplate[]
+
+  @@map("centers")
+}
+
+model Lead {
+  id               String     @id @default(uuid())
+  name             String
+  phone            String?
+  email            String?
+  source           LeadSource
+  status           LeadStatus @default(NEW)
+  priority         Int        @default(0)
+  attemptCount     Int        @default(0) @map("attempt_count")
+  inquiryCount     Int        @default(1) @map("inquiry_count")
+  centerId         String?    @map("center_id")
+  assignedAdminId  String?    @map("assigned_admin_id")
+  assignedAgentId  String?    @map("assigned_agent_id")
+  followUpAt       DateTime?  @map("follow_up_at")
+  courseInterest   String?    @map("course_interest")
+  city             String?
+  message          String?
+  sourceWebsite    String?    @map("source_website")
+  campaign         String?
+  tags             String[]   @default([])
+  metadata         Json       @default("{}")
+  deletedAt        DateTime?  @map("deleted_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  center          Center?          @relation(fields: [centerId], references: [id])
+  assignedAdmin   User?            @relation("AssignedAdmin", fields: [assignedAdminId], references: [id])
+  assignedAgent   User?            @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  remarks         Remark[]
+  followUps       FollowUp[]
+  smsMessages     SmsMessage[]
+  emailMessages   EmailMessage[]
+  callLogs        CallLog[]
+  attachments     Attachment[]
+  duplicatesAsCanonical LeadDuplicate[] @relation("CanonicalLead")
+  duplicatesAsDuplicate LeadDuplicate[] @relation("DuplicateLead")
+  parsedFromEmails IncomingEmail[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([centerId, status])
+  @@index([assignedAgentId, followUpAt])
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model LeadDuplicate {
+  id               String             @id @default(uuid())
+  canonicalLeadId  String             @map("canonical_lead_id")
+  duplicateLeadId  String             @map("duplicate_lead_id")
+  matchType        DuplicateMatchType @map("match_type")
+  createdAt        DateTime           @default(now()) @map("created_at")
+
+  canonicalLead Lead @relation("CanonicalLead", fields: [canonicalLeadId], references: [id])
+  duplicateLead Lead @relation("DuplicateLead", fields: [duplicateLeadId], references: [id])
+
+  @@index([canonicalLeadId])
+  @@index([duplicateLeadId])
+  @@map("lead_duplicates")
+}
+
+model Remark {
+  id        String    @id @default(uuid())
+  leadId    String    @map("lead_id")
+  authorId  String    @map("author_id")
+  body      String
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  lead   Lead @relation(fields: [leadId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([leadId])
+  @@map("remarks")
+}
+
+model FollowUp {
+  id          String         @id @default(uuid())
+  leadId      String         @map("lead_id")
+  agentId     String         @map("agent_id")
+  scheduledAt DateTime       @map("scheduled_at")
+  completedAt DateTime?      @map("completed_at")
+  notes       String?
+  status      FollowUpStatus @default(PENDING)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  lead  Lead @relation(fields: [leadId], references: [id])
+  agent User @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, scheduledAt])
+  @@index([leadId])
+  @@index([status, scheduledAt])
+  @@map("follow_ups")
+}
+
+model SmsMessage {
+  id        String          @id @default(uuid())
+  leadId    String          @map("lead_id")
+  direction CommDirection
+  body      String
+  twilioSid String?         @map("twilio_sid")
+  status    String          @default("queued")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+  @@map("sms_messages")
+}
+
+model EmailMessage {
+  id         String          @id @default(uuid())
+  leadId     String          @map("lead_id")
+  direction  CommDirection
+  subject    String
+  body       String
+  resendId   String?         @map("resend_id")
+  rawHeaders Json            @default("{}") @map("raw_headers")
+  status     String          @default("sent")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+  @@map("email_messages")
+}
+
+model CallLog {
+  id           String          @id @default(uuid())
+  leadId       String          @map("lead_id")
+  direction    CommDirection
+  duration     Int             @default(0)
+  twilioSid    String?         @map("twilio_sid")
+  recordingUrl String?         @map("recording_url")
+  outcome      String?
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+  @@map("call_logs")
+}
+
+model IncomingEmail {
+  id            String      @id @default(uuid())
+  integrationId String      @map("integration_id")
+  externalId    String?     @map("external_id")
+  rawContent    String      @map("raw_content")
+  parsedLeadId  String?     @map("parsed_lead_id")
+  parseStatus   ParseStatus @default(PENDING) @map("parse_status")
+  parseError    String?     @map("parse_error")
+  processedAt   DateTime?   @map("processed_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  integration Integration @relation(fields: [integrationId], references: [id])
+  parsedLead  Lead?       @relation(fields: [parsedLeadId], references: [id])
+
+  @@index([parseStatus, createdAt])
+  @@index([integrationId])
+  @@map("incoming_emails")
+}
+
+model Attachment {
+  id           String    @id @default(uuid())
+  leadId       String    @map("lead_id")
+  uploadedById String    @map("uploaded_by_id")
+  fileName     String    @map("file_name")
+  fileKey      String    @map("file_key")
+  mimeType     String    @map("mime_type")
+  sizeBytes    Int       @map("size_bytes")
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  lead       Lead @relation(fields: [leadId], references: [id])
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@index([leadId])
+  @@map("attachments")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  payload   Json             @default("{}")
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?  @map("actor_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  before     Json?
+  after      Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model TrashRecord {
+  id          String          @id @default(uuid())
+  entityType  TrashEntityType @map("entity_type")
+  entityId    String          @map("entity_id")
+  snapshot    Json
+  deletedById String          @map("deleted_by_id")
+  restoredAt  DateTime?       @map("restored_at")
+  purgedAt    DateTime?       @map("purged_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  deletedBy User @relation("DeletedBy", fields: [deletedById], references: [id])
+
+  @@index([entityType, restoredAt])
+  @@map("trash_records")
+}
+
+model Integration {
+  id        String          @id @default(uuid())
+  name      String
+  type      IntegrationType
+  centerId  String?         @map("center_id")
+  config    Json            @default("{}")
+  apiKey    String?         @unique @map("api_key")
+  isActive  Boolean         @default(true) @map("is_active")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  center         Center?         @relation(fields: [centerId], references: [id])
+  incomingEmails IncomingEmail[]
+
+  @@index([type, isActive])
+  @@map("integrations")
+}
+
+model LeadRoutingRule {
+  id              String   @id @default(uuid())
+  name            String
+  centerId        String   @map("center_id")
+  priority        Int      @default(0)
+  conditions      Json     @default("{}")
+  assignAdminId   String?  @map("assign_admin_id")
+  assignAgentId   String?  @map("assign_agent_id")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  center Center @relation(fields: [centerId], references: [id])
+
+  @@index([centerId, priority])
+  @@map("lead_routing_rules")
+}
+
+model MessageTemplate {
+  id        String      @id @default(uuid())
+  centerId  String?     @map("center_id")
+  channel   CommChannel
+  name      String
+  subject   String?
+  body      String
+  createdBy String?     @map("created_by")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  center  Center? @relation(fields: [centerId], references: [id])
+  creator User?   @relation(fields: [createdBy], references: [id])
+
+  @@index([centerId, channel])
+  @@map("message_templates")
+}
+
+model ScheduledMessage {
+  id          String      @id @default(uuid())
+  leadId      String      @map("lead_id")
+  channel     CommChannel
+  subject     String?
+  body        String
+  scheduledAt DateTime    @map("scheduled_at")
+  sentAt      DateTime?   @map("sent_at")
+  status      String      @default("pending")
+  createdBy   String      @map("created_by")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  @@index([status, scheduledAt])
+  @@map("scheduled_messages")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
