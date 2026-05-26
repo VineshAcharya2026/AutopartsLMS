@@ -217,6 +217,28 @@ class IngestLeadPayload(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class AutoPartsFormPayload(BaseModel):
+    """Raw fields from used-carparts.us quote form (and similar sites)."""
+
+    name: str
+    email: EmailStr | None = None
+    mobile: str | None = None
+    phone: str | None = None
+    year: str | None = None
+    brand: str | None = None
+    make: str | None = None
+    model: str | None = None
+    model_text: str | None = None
+    part_name: str | None = None
+    vin: str | None = None
+    zip_code: str | None = None
+    purchase: str | None = None
+    comment: str | None = None
+    source_website: str | None = None
+    campaign: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class IntegrationCreate(BaseModel):
     name: str
     type: str

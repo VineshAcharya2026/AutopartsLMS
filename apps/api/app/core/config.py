@@ -1,5 +1,30 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import base64
+import hashlib
 import os
+
+from cryptography.fernet import Fernet
+
+
+def _normalize_database_url(url: str) -> str:
+    """Render PostgreSQL requires SSL; ensure sslmode is set when missing."""
+    if not url or "sslmode=" in url:
+        return url
+    if "render.com" in url or os.environ.get("RENDER"):
+        sep = "&" if "?" in url else "?"
+        return f"{url}{sep}sslmode=require"
+    return url
+
+
+def _resolve_fernet_key(key: str) -> str:
+    """Render generateValue is not Fernet-safe; derive a stable key from JWT_SECRET if needed."""
+    try:
+        Fernet(key.encode("utf-8"))
+        return key
+    except Exception:
+        source = os.environ.get("JWT_SECRET") or key or "centercrm-default-secret"
+        digest = hashlib.sha256(source.encode("utf-8")).digest()
+        return base64.urlsafe_b64encode(digest).decode("utf-8")
 
 
 class Settings(BaseSettings):
@@ -44,4 +69,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-os.environ.setdefault("DATABASE_URL", settings.database_url)
+_db_url = _normalize_database_url(settings.database_url)
+if _db_url != settings.database_url:
+    settings.database_url = _db_url
+_fernet = _resolve_fernet_key(settings.fernet_key)
+if _fernet != settings.fernet_key:
+    settings.fernet_key = _fernet
+os.environ["DATABASE_URL"] = settings.database_url

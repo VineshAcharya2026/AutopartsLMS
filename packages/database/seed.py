@@ -2,18 +2,19 @@
 
 import asyncio
 
-from passlib.context import CryptContext
-
+import bcrypt
 from prisma import Prisma
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 async def main() -> None:
     db = Prisma()
     await db.connect()
 
-    password_hash = pwd_context.hash("Admin@123")
+    password_hash = hash_password("Admin@123")
 
     center = await db.center.upsert(
         where={"code": "HQ"},
@@ -92,6 +93,36 @@ async def main() -> None:
                 "assignedAdminId": admin.id,
                 "courseInterest": "Auto Parts Management",
                 "city": "Mumbai",
+            }
+        )
+
+    existing_auto_parts = await db.lead.find_first(where={"id": "seed-auto-parts-1"})
+    if not existing_auto_parts:
+        await db.lead.create(
+            data={
+                "id": "seed-auto-parts-1",
+                "name": "John Doe",
+                "phone": "5551234567",
+                "email": "john@example.com",
+                "source": "WEBSITE_FORM",
+                "status": "NEW",
+                "centerId": center.id,
+                "assignedAdminId": admin.id,
+                "courseInterest": "Engine",
+                "city": "90210",
+                "message": "Need OEM preferred · Purchase: Immediately",
+                "sourceWebsite": "used-carparts.us",
+                "metadata": {
+                    "year": "2018",
+                    "make": "Toyota",
+                    "brand": "Toyota",
+                    "model": "Camry",
+                    "part_name": "Engine",
+                    "vin": "1HGCM82633A004352",
+                    "zip_code": "90210",
+                    "purchase_timeline": "Immediately",
+                    "comment": "Need OEM preferred",
+                },
             }
         )
 

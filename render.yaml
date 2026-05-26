@@ -19,6 +19,8 @@ services:
     dockerfilePath: ./docker/Dockerfile.api
     dockerContext: .
     healthCheckPath: /health
+    # Migrations before traffic switches; API starts immediately via start-api.sh
+    preDeployCommand: cd /app/packages/database && npx prisma migrate deploy
     envVars:
       - key: DATABASE_URL
         fromDatabase:

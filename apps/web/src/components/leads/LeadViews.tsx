@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Lead, Role } from "@centercrm/shared-types";
+import type { Role } from "@centercrm/shared-types";
 import {
   assignLead,
   deleteLead,
@@ -14,17 +14,149 @@ import {
   type ApiUser,
 } from "@/lib/api";
 import { STATUS_COLORS, cn } from "@/lib/utils";
+import {
+  type AnyLead,
+  getAutoPartsMeta,
+  isAutoPartsLead,
+  leadField,
+  partNameForLead,
+  purchaseTimeline,
+  vehicleTitle,
+  zipCodeForLead,
+} from "@/components/leads/autoPartsLead";
 
-type AnyLead = Lead | ApiLead;
-
-function leadField<T>(lead: AnyLead, snake: string, camel: string): T | undefined {
-  const record = lead as Record<string, unknown>;
-  return (record[snake] ?? record[camel]) as T | undefined;
-}
+export type { AnyLead } from "@/components/leads/autoPartsLead";
 
 export function LeadStatusBadge({ status }: { status: string }) {
   return (
     <span className={cn("badge", STATUS_COLORS[status] || "bg-gray-100 text-gray-800")}>{status}</span>
+  );
+}
+
+function AutoPartsDetailSection({ lead }: { lead: AnyLead }) {
+  const meta = getAutoPartsMeta(lead);
+  if (!isAutoPartsLead(lead)) return null;
+
+  const rows = [
+    { label: "Year", value: meta.year },
+    { label: "Make", value: meta.make || meta.brand },
+    { label: "Model", value: meta.model },
+    { label: "Part", value: partNameForLead(lead, meta) },
+    { label: "VIN", value: meta.vin },
+    { label: "ZIP Code", value: zipCodeForLead(lead, meta) },
+    { label: "Purchase timeline", value: purchaseTimeline(meta) },
+    { label: "Notes", value: meta.comment || leadField<string>(lead, "message", "message") },
+  ].filter((row) => row.value);
+
+  return (
+    <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-4 dark:border-orange-900/40 dark:bg-orange-950/20">
+      <p className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
+        Vehicle &amp; Part Quote
+      </p>
+      <p className="mt-1 font-semibold">{vehicleTitle(meta)}</p>
+      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <span className="text-[rgb(var(--muted))]">{row.label}</span>
+            <p>{row.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AutoPartsLeadCard({
+  lead,
+  onSelect,
+  compact = false,
+}: {
+  lead: AnyLead;
+  onSelect?: (lead: AnyLead) => void;
+  compact?: boolean;
+}) {
+  const meta = getAutoPartsMeta(lead);
+  const partName = partNameForLead(lead, meta);
+  const zip = zipCodeForLead(lead, meta);
+  const timeline = purchaseTimeline(meta);
+  const created = leadField<string>(lead, "created_at", "createdAt");
+
+  if (compact) {
+    return (
+      <div className="card p-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => onSelect?.(lead)}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-medium text-sm">{vehicleTitle(meta)}</p>
+            <p className="text-xs text-[rgb(var(--muted))] mt-1">Part: {partName}</p>
+          </div>
+          <LeadStatusBadge status={String(lead.status)} />
+        </div>
+        <p className="text-xs text-[rgb(var(--muted))] mt-2">{String(lead.name)}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="card p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-orange-500"
+      onClick={() => onSelect?.(lead)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-orange-600 dark:text-orange-400">
+            Auto Parts Quote
+          </p>
+          <h3 className="font-semibold text-base mt-0.5">{vehicleTitle(meta)}</h3>
+          <p className="text-sm text-[rgb(var(--muted))] mt-1">
+            Part: <span className="font-medium text-[rgb(var(--foreground))]">{partName}</span>
+          </p>
+        </div>
+        <LeadStatusBadge status={String(lead.status)} />
+      </div>
+
+      <div className="mt-3 space-y-1 text-sm">
+        <p className="font-medium">{String(lead.name)}</p>
+        <p className="text-[rgb(var(--muted))]">
+          {String(leadField(lead, "phone", "phone") || "—")}
+          {leadField(lead, "email", "email") ? ` · ${leadField(lead, "email", "email")}` : ""}
+        </p>
+        <p className="text-xs text-[rgb(var(--muted))]">
+          {zip ? `ZIP ${zip}` : "No ZIP"}
+          {timeline ? ` · ${timeline}` : ""}
+        </p>
+        {meta.vin && <p className="text-xs font-mono text-[rgb(var(--muted))]">VIN: {meta.vin}</p>}
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-[rgb(var(--border))] flex justify-between text-xs text-[rgb(var(--muted))]">
+        <span>
+          {String(leadField(lead, "source", "source") || "—")}
+          {leadField(lead, "source_website", "sourceWebsite")
+            ? ` · ${leadField(lead, "source_website", "sourceWebsite")}`
+            : ""}
+        </span>
+        {created && <span>{new Date(created).toLocaleString()}</span>}
+      </div>
+    </div>
+  );
+}
+
+function GenericLeadCard({ lead, onSelect }: { lead: AnyLead; onSelect?: (lead: AnyLead) => void }) {
+  return (
+    <div
+      className="card p-4 cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => onSelect?.(lead)}
+    >
+      <div className="flex items-start justify-between">
+        <h3 className="font-semibold">{String(lead.name)}</h3>
+        <LeadStatusBadge status={String(lead.status)} />
+      </div>
+      <p className="mt-2 text-sm text-[rgb(var(--muted))]">
+        {String(leadField(lead, "phone", "phone") || leadField(lead, "email", "email") || "—")}
+      </p>
+      <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+        {String(leadField(lead, "source", "source") || "—")} · {String(leadField(lead, "city", "city") || "No city")}
+      </p>
+    </div>
   );
 }
 
@@ -110,6 +242,8 @@ export function LeadTable({
   showAssignment?: boolean;
   maps?: AssignmentMaps;
 }) {
+  const showAutoPartsColumns = leads.some(isAutoPartsLead);
+
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
@@ -117,6 +251,12 @@ export function LeadTable({
           <thead className="border-b border-[rgb(var(--border))] bg-slate-50 dark:bg-slate-900">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Name</th>
+              {showAutoPartsColumns && (
+                <>
+                  <th className="px-4 py-3 text-left font-medium">Vehicle</th>
+                  <th className="px-4 py-3 text-left font-medium">Part</th>
+                </>
+              )}
               <th className="px-4 py-3 text-left font-medium">Phone</th>
               <th className="px-4 py-3 text-left font-medium">Email</th>
               <th className="px-4 py-3 text-left font-medium">Source</th>
@@ -137,6 +277,7 @@ export function LeadTable({
               const adminId = leadField<string | null>(lead, "assigned_admin_id", "assignedAdminId");
               const agentId = leadField<string | null>(lead, "assigned_agent_id", "assignedAgentId");
               const followUp = leadField<string | null>(lead, "follow_up_at", "followUpAt");
+              const meta = getAutoPartsMeta(lead);
               return (
                 <tr
                   key={String(lead.id)}
@@ -144,6 +285,16 @@ export function LeadTable({
                   onClick={() => onSelect?.(lead)}
                 >
                   <td className="px-4 py-3 font-medium">{String(lead.name)}</td>
+                  {showAutoPartsColumns && (
+                    <>
+                      <td className="px-4 py-3">
+                        {isAutoPartsLead(lead) ? vehicleTitle(meta) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isAutoPartsLead(lead) ? partNameForLead(lead, meta) : "—"}
+                      </td>
+                    </>
+                  )}
                   <td className="px-4 py-3">{String(leadField(lead, "phone", "phone") || "—")}</td>
                   <td className="px-4 py-3">{String(leadField(lead, "email", "email") || "—")}</td>
                   <td className="px-4 py-3">{String(leadField(lead, "source", "source") || "—")}</td>
@@ -171,24 +322,13 @@ export function LeadTable({
 export function LeadCardGrid({ leads, onSelect }: { leads: AnyLead[]; onSelect?: (lead: AnyLead) => void }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {leads.map((lead) => (
-        <div
-          key={String(lead.id)}
-          className="card p-4 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => onSelect?.(lead)}
-        >
-          <div className="flex items-start justify-between">
-            <h3 className="font-semibold">{String(lead.name)}</h3>
-            <LeadStatusBadge status={String(lead.status)} />
-          </div>
-          <p className="mt-2 text-sm text-[rgb(var(--muted))]">
-            {String(leadField(lead, "phone", "phone") || leadField(lead, "email", "email") || "—")}
-          </p>
-          <p className="mt-1 text-xs text-[rgb(var(--muted))]">
-            {String(leadField(lead, "source", "source") || "—")} · {String(leadField(lead, "city", "city") || "No city")}
-          </p>
-        </div>
-      ))}
+      {leads.map((lead) =>
+        isAutoPartsLead(lead) ? (
+          <AutoPartsLeadCard key={String(lead.id)} lead={lead} onSelect={onSelect} />
+        ) : (
+          <GenericLeadCard key={String(lead.id)} lead={lead} onSelect={onSelect} />
+        )
+      )}
     </div>
   );
 }
@@ -203,14 +343,18 @@ export function LeadKanban({ columns }: { columns: Record<string, AnyLead[]> }) 
             <span className="text-xs text-[rgb(var(--muted))]">{leads.length}</span>
           </div>
           <div className="space-y-2">
-            {leads.map((lead) => (
-              <div key={String(lead.id)} className="card p-3">
-                <p className="font-medium text-sm">{String(lead.name)}</p>
-                <p className="text-xs text-[rgb(var(--muted))] mt-1">
-                  {String(leadField(lead, "phone", "phone") || leadField(lead, "email", "email") || "—")}
-                </p>
-              </div>
-            ))}
+            {leads.map((lead) =>
+              isAutoPartsLead(lead) ? (
+                <AutoPartsLeadCard key={String(lead.id)} lead={lead} compact />
+              ) : (
+                <div key={String(lead.id)} className="card p-3">
+                  <p className="font-medium text-sm">{String(lead.name)}</p>
+                  <p className="text-xs text-[rgb(var(--muted))] mt-1">
+                    {String(leadField(lead, "phone", "phone") || leadField(lead, "email", "email") || "—")}
+                  </p>
+                </div>
+              )
+            )}
           </div>
         </div>
       ))}
@@ -370,6 +514,7 @@ export function LeadDetailDrawer({
           </button>
         </div>
         <div className="p-4 space-y-4">
+          <AutoPartsDetailSection lead={lead} />
           <div>
             <LeadStatusBadge status={String(lead.status)} />
           </div>
@@ -387,8 +532,8 @@ export function LeadDetailDrawer({
               <p>{String(leadField(lead, "source", "source") || "—")}</p>
             </div>
             <div>
-              <span className="text-[rgb(var(--muted))]">City</span>
-              <p>{String(leadField(lead, "city", "city") || "—")}</p>
+              <span className="text-[rgb(var(--muted))]">{isAutoPartsLead(lead) ? "ZIP Code" : "City"}</span>
+              <p>{String(zipCodeForLead(lead) || leadField(lead, "city", "city") || "—")}</p>
             </div>
             <div>
               <span className="text-[rgb(var(--muted))]">Attempts</span>
@@ -399,7 +544,7 @@ export function LeadDetailDrawer({
               <p>{String(leadField(lead, "inquiry_count", "inquiryCount") ?? 0)}</p>
             </div>
           </div>
-          {Boolean(leadField(lead, "message", "message")) && (
+          {Boolean(leadField(lead, "message", "message")) && !isAutoPartsLead(lead) && (
             <div className="text-sm">
               <span className="text-[rgb(var(--muted))]">Message</span>
               <p className="mt-1">{String(leadField(lead, "message", "message"))}</p>
