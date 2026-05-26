@@ -10,19 +10,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY apps/api/pyproject.toml apps/api/
 COPY apps/api/app apps/api/app
-COPY packages/database packages/database
-COPY workers workers
+COPY packages/database/package.json packages/database/
+COPY packages/database/prisma packages/database/prisma
+COPY packages/database/seed.py packages/database/
 
 RUN pip install --no-cache-dir -e apps/api/
 
 WORKDIR /app/packages/database
-# prisma CLI must be available at build and runtime (migrate deploy in start-api.sh)
-RUN npm install && npx prisma generate
+RUN npm ci 2>/dev/null || npm install
+ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
+RUN npx prisma generate
+
+WORKDIR /app/apps/api
+RUN python -m prisma generate --schema=/app/packages/database/prisma/schema.prisma
 
 COPY docker/start-api.sh /start-api.sh
 RUN sed -i 's/\r$//' /start-api.sh && chmod +x /start-api.sh
 
-WORKDIR /app/apps/api
 ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 CMD ["/start-api.sh"]

@@ -10,7 +10,12 @@ def _normalize_database_url(url: str) -> str:
     """Render PostgreSQL requires SSL; ensure sslmode is set when missing."""
     if not url or "sslmode=" in url:
         return url
-    if "render.com" in url or os.environ.get("RENDER"):
+    if (
+        "render.com" in url
+        or "dpg-" in url
+        or os.environ.get("RENDER")
+        or os.environ.get("RENDER_SERVICE_ID")
+    ):
         sep = "&" if "?" in url else "?"
         return f"{url}{sep}sslmode=require"
     return url
