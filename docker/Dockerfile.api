@@ -19,10 +19,9 @@ RUN pip install --no-cache-dir -e apps/api/
 WORKDIR /app/packages/database
 RUN npm ci 2>/dev/null || npm install
 ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
-RUN npx prisma generate
+RUN python -m prisma generate --schema=/app/packages/database/prisma/schema.prisma
 
 WORKDIR /app/apps/api
-RUN python -m prisma generate --schema=/app/packages/database/prisma/schema.prisma
 
 COPY docker/start-api.sh /start-api.sh
 RUN sed -i 's/\r$//' /start-api.sh && chmod +x /start-api.sh
