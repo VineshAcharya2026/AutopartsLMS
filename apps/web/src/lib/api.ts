@@ -1,4 +1,4 @@
-import { API_URL } from "./utils";
+import { API_URL, getApiOrigin } from "./utils";
 import { useAuthStore } from "./store";
 
 type RequestOptions = RequestInit & { auth?: boolean };
@@ -12,6 +12,9 @@ function formatApiError(status: number, payload: unknown): string {
         .map((item) => (typeof item === "object" && item && "msg" in item ? String(item.msg) : String(item)))
         .join(", ");
     }
+  }
+  if (status === 404) {
+    return "API not found. Redeploy the frontend with a public NEXT_PUBLIC_API_URL, or deploy the backend.";
   }
   if (status === 503) {
     return "Database unavailable. Start PostgreSQL and run migrations (see login page banner).";
@@ -63,16 +66,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   return res.json();
 }
 
-export async function login(email: string, password: string) {
-  const data = await apiFetch<{
-    access_token: string;
-    user: Record<string, unknown>;
-  }>("/auth/login", {
-    method: "POST",
-    auth: false,
-    body: JSON.stringify({ email, password }),
-  });
-
+function parseAuthResponse(data: { access_token: string; user: Record<string, unknown> }) {
   return {
     access_token: data.access_token,
     user: {
@@ -88,10 +82,39 @@ export async function login(email: string, password: string) {
   };
 }
 
+export async function login(email: string, password: string) {
+  const data = await apiFetch<{
+    access_token: string;
+    user: Record<string, unknown>;
+  }>("/auth/login", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ email, password }),
+  });
+
+  return parseAuthResponse(data);
+}
+
+export async function fetchOAuthStatus(): Promise<{ google_enabled: boolean }> {
+  return apiFetch("/auth/oauth/status", { auth: false });
+}
+
+export function getGoogleOAuthStartUrl(expectedRole: import("@centercrm/shared-types").Role): string {
+  return `${getApiOrigin()}/api/v1/auth/oauth/google/start?expected_role=${expectedRole}`;
+}
+
+export async function exchangeOAuthCode(code: string) {
+  const data = await apiFetch<{ access_token: string; user: Record<string, unknown> }>("/auth/oauth/exchange", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ code }),
+  });
+  return parseAuthResponse(data);
+}
+
 export async function checkApiHealth(): Promise<boolean> {
   try {
-    const url = typeof window !== "undefined" ? "/backend/health" : "http://127.0.0.1:8000/health";
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(`${getApiOrigin()}/health`, { cache: "no-store" });
     return res.ok;
   } catch {
     return false;

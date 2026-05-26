@@ -1,64 +1,95 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
 from prisma import Prisma
 from prisma.enums import Role
 
-from app.core.audit import emit_audit
 from app.core.config import settings
 from app.core.deps import get_client_ip, get_current_user
 from app.core.security import (
     create_access_token,
     create_refresh_token_value,
-    hash_password,
     hash_token,
     refresh_token_expiry,
     verify_password,
 )
 from app.db.prisma_client import get_db
-from app.schemas.common import LoginRequest, TokenResponse, UserResponse
+from app.modules.auth.oauth_service import (
+    exchange_login_code,
+    google_oauth_configured,
+    handle_google_callback,
+    start_google_oauth,
+)
+from app.modules.auth.session import issue_session_tokens
+from app.schemas.common import LoginRequest, OAuthExchangeRequest, OAuthStatusResponse, TokenResponse, UserResponse
 from app.schemas.serializers import serialize_user
 
 router = APIRouter()
 
 
+@router.get("/oauth/status", response_model=OAuthStatusResponse)
+async def oauth_status():
+    return OAuthStatusResponse(google_enabled=google_oauth_configured())
+
+
+@router.get("/oauth/google/start")
+async def google_oauth_start(
+    expected_role: Role = Query(..., alias="expected_role"),
+    db: Prisma = Depends(get_db),
+):
+    url = await start_google_oauth(db, expected_role)
+    return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/oauth/google/callback")
+async def google_oauth_callback(
+    state: str = Query(...),
+    code: str = Query(...),
+    db: Prisma = Depends(get_db),
+):
+    redirect_url = await handle_google_callback(db, state=state, code=code)
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/oauth/exchange", response_model=TokenResponse)
+async def oauth_exchange(
+    payload: OAuthExchangeRequest,
+    request: Request,
+    response: Response,
+    db: Prisma = Depends(get_db),
+):
+    user = await exchange_login_code(db, payload.code)
+    return await issue_session_tokens(
+        db=db,
+        user=user,
+        response=response,
+        request=request,
+        audit_action="USER_OAUTH_LOGIN",
+        ip_address=get_client_ip(request),
+    )
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, request: Request, response: Response, db: Prisma = Depends(get_db)):
     user = await db.user.find_first(where={"email": payload.email, "deletedAt": None})
-    if not user or not verify_password(payload.password, user.passwordHash):
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if not user.passwordHash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account uses Google sign-in.",
+        )
+    if not verify_password(payload.password, user.passwordHash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.isActive:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
-    access_token = create_access_token({"sub": user.id, "role": user.role, "center_id": user.centerId})
-    refresh_value = create_refresh_token_value()
-    await db.refreshtoken.create(
-        data={
-            "userId": user.id,
-            "tokenHash": hash_token(refresh_value),
-            "expiresAt": refresh_token_expiry(),
-        }
-    )
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_value,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax" if not settings.cookie_secure else "none",
-        max_age=7 * 24 * 3600,
-    )
-
-    await emit_audit(
-        db,
-        actor_id=user.id,
-        action="USER_LOGIN",
-        entity_type="User",
-        entity_id=user.id,
+    return await issue_session_tokens(
+        db=db,
+        user=user,
+        response=response,
+        request=request,
+        audit_action="USER_LOGIN",
         ip_address=get_client_ip(request),
-    )
-
-    return TokenResponse(
-        access_token=access_token,
-        user=UserResponse(**serialize_user(user)),
     )
 
 

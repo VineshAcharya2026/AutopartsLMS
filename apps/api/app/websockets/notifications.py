@@ -1,13 +1,14 @@
 import asyncio
 import json
+import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.redis_client import get_redis
 from app.core.security import decode_access_token
-from app.db.prisma_client import get_db
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:
@@ -46,20 +47,27 @@ async def websocket_notifications(websocket: WebSocket, token: str | None = None
         return
 
     await manager.connect(user_id, websocket)
-    redis = await get_redis()
-    pubsub = redis.pubsub()
+
+    listener_task = None
+    pubsub = None
     channel = f"notifications:{user_id}"
-    await pubsub.subscribe(channel)
 
-    async def redis_listener():
-        while True:
-            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-            if message and message.get("data"):
-                data = json.loads(message["data"])
-                await websocket.send_json({"type": "notification", "data": data})
-            await asyncio.sleep(0.1)
+    try:
+        redis = await get_redis()
+        pubsub = redis.pubsub()
+        await pubsub.subscribe(channel)
 
-    listener_task = asyncio.create_task(redis_listener())
+        async def redis_listener():
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message and message.get("data"):
+                    data = json.loads(message["data"])
+                    await websocket.send_json({"type": "notification", "data": data})
+                await asyncio.sleep(0.1)
+
+        listener_task = asyncio.create_task(redis_listener())
+    except Exception as exc:
+        logger.warning("Redis unavailable for websocket notifications: %s", exc)
 
     try:
         while True:
@@ -68,6 +76,12 @@ async def websocket_notifications(websocket: WebSocket, token: str | None = None
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(user_id, websocket)
-        listener_task.cancel()
-        await pubsub.unsubscribe(channel)
-        await pubsub.close()
+    finally:
+        if listener_task:
+            listener_task.cancel()
+        if pubsub:
+            try:
+                await pubsub.unsubscribe(channel)
+                await pubsub.close()
+            except Exception:
+                pass

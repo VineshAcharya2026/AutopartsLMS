@@ -120,6 +120,12 @@ Or use:
 | `NEXT_PUBLIC_API_URL` | Frontend build | Public API URL (Path A) |
 | `NEXT_PUBLIC_WS_URL` | Frontend build | WebSocket URL (Path A) |
 | `BACKEND_URL` | App Hosting | Cloud Run URL for `/backend` proxy (Path B) |
+| `GOOGLE_CLIENT_ID` | API | Google OAuth client ID (see [OAUTH.md](OAUTH.md)) |
+| `GOOGLE_CLIENT_SECRET` | API | Google OAuth client secret |
+| `OAUTH_REDIRECT_URI` | API | `{API_URL}/api/v1/auth/oauth/google/callback` |
+| `FRONTEND_OAUTH_CALLBACK_URL` | API | `https://autoparts-lms.web.app/auth/callback` |
+
+See [OAUTH.md](OAUTH.md) for Google Cloud Console setup.
 
 See `.env.production.example` for a full template.
 

@@ -32,5 +32,11 @@ services:
         value: "true"
       - key: CORS_ORIGINS
         value: https://autoparts-lms.web.app,https://autoparts-lms.firebaseapp.com
+      - key: FRONTEND_OAUTH_CALLBACK_URL
+        value: https://autoparts-lms.web.app/auth/callback
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       - key: REDIS_URL
         value: redis://127.0.0.1:6379/0

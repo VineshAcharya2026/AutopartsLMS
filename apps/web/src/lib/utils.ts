@@ -10,6 +10,20 @@ export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== "undefined" ? "/backend/api/v1" : "http://127.0.0.1:8000/api/v1");
 
+/** Origin for health checks (no /api/v1 suffix). */
+export function getApiOrigin(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "");
+  }
+  if (typeof window !== "undefined") {
+    if (API_URL.startsWith("http")) {
+      return API_URL.replace(/\/api\/v1\/?$/, "");
+    }
+    return "/backend";
+  }
+  return "http://127.0.0.1:8000";
+}
+
 export const WS_URL =
   process.env.NEXT_PUBLIC_WS_URL ||
   (typeof window !== "undefined"

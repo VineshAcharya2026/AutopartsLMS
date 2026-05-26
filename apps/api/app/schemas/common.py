@@ -18,6 +18,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class OAuthExchangeRequest(BaseModel):
+    code: str = Field(min_length=8, max_length=256)
+
+
+class OAuthStatusResponse(BaseModel):
+    google_enabled: bool
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

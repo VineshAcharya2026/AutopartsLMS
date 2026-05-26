@@ -99,10 +99,14 @@ enum NotificationType {
   SYSTEM
 }
 
+enum OAuthProvider {
+  GOOGLE
+}
+
 model User {
   id           String    @id @default(uuid())
   email        String
-  passwordHash String    @map("password_hash")
+  passwordHash String?   @map("password_hash")
   firstName    String    @map("first_name")
   lastName     String    @map("last_name")
   role         Role
@@ -115,6 +119,7 @@ model User {
 
   center              Center?           @relation(fields: [centerId], references: [id])
   refreshTokens       RefreshToken[]
+  oauthAccounts       OAuthAccount[]
   assignedLeadsAdmin  Lead[]            @relation("AssignedAdmin")
   assignedLeadsAgent  Lead[]            @relation("AssignedAgent")
   remarks             Remark[]
@@ -464,4 +469,49 @@ model RefreshToken {
   @@index([userId])
   @@index([tokenHash])
   @@map("refresh_tokens")
+}
+
+model OAuthAccount {
+  id                String        @id @default(uuid())
+  userId            String        @map("user_id")
+  provider          OAuthProvider
+  providerAccountId String        @map("provider_account_id")
+  email             String
+  accessToken       String?       @map("access_token")
+  refreshToken      String?       @map("refresh_token")
+  expiresAt         DateTime?     @map("expires_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([email])
+  @@map("oauth_accounts")
+}
+
+model OAuthState {
+  id           String   @id @default(uuid())
+  state        String   @unique
+  codeVerifier String   @map("code_verifier")
+  expectedRole Role     @map("expected_role")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("oauth_states")
+}
+
+model OAuthLoginCode {
+  id        String    @id @default(uuid())
+  code      String    @unique
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([code])
+  @@index([expiresAt])
+  @@map("oauth_login_codes")
 }
