@@ -60,7 +60,7 @@ async def create_admin(
             "lastName": payload.last_name,
             "role": Role.ADMIN,
             "centerId": payload.center_id,
-            "permissions": payload.permissions,
+            "permissions": to_prisma_json(payload.permissions or {}),
         }
     )
     await emit_audit(db, actor_id=user.id, action="ADMIN_CREATED", entity_type="User", entity_id=admin.id, after=serialize_user(admin), ip_address=get_client_ip(request))

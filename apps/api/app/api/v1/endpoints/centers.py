@@ -34,7 +34,11 @@ async def create_center(
         raise HTTPException(status_code=400, detail="Center code already exists")
 
     center = await db.center.create(
-        data={"name": payload.name, "code": payload.code, "settings": payload.settings}
+        data={
+            "name": payload.name,
+            "code": payload.code,
+            "settings": to_prisma_json(payload.settings or {}),
+        }
     )
     await emit_audit(db, actor_id=user.id, action="CENTER_CREATED", entity_type="Center", entity_id=center.id, after=serialize_center(center), ip_address=get_client_ip(request))
     return CenterResponse(**serialize_center(center))
