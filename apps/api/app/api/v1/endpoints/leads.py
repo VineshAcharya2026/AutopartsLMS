@@ -10,6 +10,7 @@ from app.core.audit import emit_audit
 from app.core.deps import get_client_ip, get_current_user, get_lead_scoped
 from app.core.permissions import require_roles
 from app.db.prisma_client import get_db
+from app.db.prisma_json import to_prisma_json
 from app.modules.ingestion.csv_import import import_leads_from_csv
 from app.modules.leads.service import get_agent_wise_view, get_kanban_view, list_leads, soft_delete_lead
 from app.modules.notifications.service import notify_lead_assignment
@@ -149,7 +150,7 @@ async def update_lead(
     if payload.tags is not None:
         data["tags"] = payload.tags
     if payload.metadata is not None:
-        data["metadata"] = payload.metadata
+        data["metadata"] = to_prisma_json(payload.metadata)
 
     if payload.increment_attempt:
         data["attemptCount"] = lead.attemptCount + 1

@@ -10,6 +10,7 @@ from app.core.deps import get_client_ip, get_current_user
 from app.core.permissions import require_roles
 from app.core.security import hash_password
 from app.db.prisma_client import get_db
+from app.db.prisma_json import to_prisma_json
 from app.schemas.common import UserCreate, UserResponse, UserUpdate
 from app.schemas.serializers import serialize_user
 
@@ -103,7 +104,7 @@ async def create_agent(
             "lastName": payload.last_name,
             "role": Role.AGENT,
             "centerId": center_id,
-            "permissions": payload.permissions,
+            "permissions": to_prisma_json(payload.permissions or {}),
         }
     )
     await emit_audit(db, actor_id=user.id, action="AGENT_CREATED", entity_type="User", entity_id=agent.id, after=serialize_user(agent), ip_address=get_client_ip(request))
@@ -142,7 +143,7 @@ async def update_user(
     if payload.is_active is not None:
         data["isActive"] = payload.is_active
     if payload.permissions is not None:
-        data["permissions"] = payload.permissions
+        data["permissions"] = to_prisma_json(payload.permissions)
     if payload.password:
         data["passwordHash"] = hash_password(payload.password)
 

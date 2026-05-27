@@ -8,6 +8,7 @@ from app.core.audit import emit_audit
 from app.core.deps import get_client_ip
 from app.core.permissions import require_roles
 from app.db.prisma_client import get_db
+from app.db.prisma_json import to_prisma_json
 from app.modules.analytics.service import get_dashboard_stats
 from app.schemas.common import CenterCreate, CenterResponse, CenterUpdate, DashboardStats
 from app.schemas.serializers import serialize_center
@@ -63,7 +64,7 @@ async def update_center(
     if payload.code:
         data["code"] = payload.code
     if payload.settings is not None:
-        data["settings"] = payload.settings
+        data["settings"] = to_prisma_json(payload.settings)
     center = await db.center.update(where={"id": center_id}, data=data)
     await emit_audit(db, actor_id=user.id, action="CENTER_UPDATED", entity_type="Center", entity_id=center_id, after=serialize_center(center), ip_address=get_client_ip(request))
     return serialize_center(center)

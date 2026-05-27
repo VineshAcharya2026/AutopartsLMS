@@ -6,6 +6,7 @@ from prisma.enums import Role
 
 from app.core.permissions import require_roles
 from app.db.prisma_client import get_db
+from app.db.prisma_json import to_prisma_json
 from app.integrations.email.service import poll_integration
 from app.schemas.common import IntegrationCreate, IntegrationResponse
 
@@ -42,7 +43,7 @@ async def create_integration(
             "name": payload.name,
             "type": payload.type,
             "centerId": payload.center_id,
-            "config": payload.config,
+            "config": to_prisma_json(payload.config or {}),
             "apiKey": api_key,
             "isActive": payload.is_active,
         }

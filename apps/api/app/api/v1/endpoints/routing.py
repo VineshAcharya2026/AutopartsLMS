@@ -4,6 +4,7 @@ from prisma.enums import Role
 
 from app.core.permissions import require_roles
 from app.db.prisma_client import get_db
+from app.db.prisma_json import to_prisma_json
 from app.schemas.common import RoutingRuleCreate, RoutingRuleResponse
 
 router = APIRouter()
@@ -38,7 +39,7 @@ async def create_rule(
             "name": payload.name,
             "centerId": payload.center_id,
             "priority": payload.priority,
-            "conditions": payload.conditions,
+            "conditions": to_prisma_json(payload.conditions or {}),
             "assignAdminId": payload.assign_admin_id,
             "assignAgentId": payload.assign_agent_id,
             "isActive": payload.is_active,

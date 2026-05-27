@@ -1,6 +1,8 @@
 from typing import Any
 
 from prisma import Prisma
+
+from app.db.prisma_json import to_prisma_json
 from prisma.enums import DuplicateMatchType, LeadSource, LeadStatus
 
 from app.modules.ingestion.routing import apply_routing_rules
@@ -38,7 +40,7 @@ async def ingest_lead(
             where={"id": duplicate.id},
             data={
                 "inquiryCount": duplicate.inquiryCount + 1,
-                "metadata": metadata,
+                "metadata": to_prisma_json(metadata),
             },
         )
 
@@ -59,7 +61,7 @@ async def ingest_lead(
         "message": payload.get("message"),
         "sourceWebsite": source_website or payload.get("source_website"),
         "campaign": campaign or payload.get("campaign"),
-        "metadata": payload.get("metadata", {}),
+        "metadata": to_prisma_json(payload.get("metadata") or {}),
         "tags": payload.get("tags", []),
     }
 

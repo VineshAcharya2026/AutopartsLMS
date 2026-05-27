@@ -41,15 +41,13 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       },
     });
   } catch (error) {
-    const hint =
-      typeof window !== "undefined"
-        ? "Ensure the backend is running on port 8000 (cd apps/api && uvicorn app.main:app --reload --port 8000)."
-        : "";
-    throw new Error(
-      error instanceof Error && error.message === "Failed to fetch"
-        ? `Cannot reach the API. ${hint}`.trim()
-        : `Cannot reach the API. ${hint}`.trim()
-    );
+    const isLocal =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    const hint = isLocal
+      ? "Start the API: cd apps/api && uvicorn app.main:app --reload --port 8000"
+      : `Check that the API is up (${getApiOrigin()}) and CORS allows ${window.location.origin}.`;
+    throw new Error(`Cannot reach the API. ${hint}`);
   }
 
   if (res.status === 401 && auth) {
