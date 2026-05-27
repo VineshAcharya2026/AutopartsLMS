@@ -10,6 +10,12 @@
     "site": "lmsportal-e05d7",
     "public": "apps/web/out",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/backend/**",
+        "destination": "https://centercrm-api.onrender.com/**"
+      }
+    ],
     "headers": [
       {
         "source": "**/*.@(js|css|svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)",

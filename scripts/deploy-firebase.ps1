@@ -17,10 +17,20 @@ Write-Host "  API: $ApiBase"
 Write-Host "  WS:  $WsUrl"
 
 $env:FIREBASE_BUILD = "1"
+$env:NODE_ENV = "production"
 $env:NEXT_PUBLIC_API_URL = $ApiBase
 $env:NEXT_PUBLIC_WS_URL = $WsUrl
+# Prevent apps/web/.env.local from overriding production API URL during build
+Remove-Item Env:BACKEND_URL -ErrorAction SilentlyContinue
 
 npm run build -w @centercrm/web
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$chunk = Get-ChildItem "$Root\apps\web\out\_next\static\chunks\*.js" -ErrorAction SilentlyContinue |
+  Select-String -Pattern "centercrm-api.onrender.com" -List -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $chunk) {
+  Write-Warning "Build may be missing production API URL in bundle (runtime fallback still applies on Firebase hosts)."
+}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "Deploying to Firebase Hosting (lmsportal-e05d7)..."

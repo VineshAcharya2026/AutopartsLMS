@@ -5,30 +5,45 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** API base URL. Use NEXT_PUBLIC_API_URL in production builds; local dev uses /backend proxy. */
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== "undefined" ? "/backend/api/v1" : "http://127.0.0.1:8000/api/v1");
+const PRODUCTION_API_BASE = "https://centercrm-api.onrender.com/api/v1";
+const PRODUCTION_API_ORIGIN = "https://centercrm-api.onrender.com";
+const PRODUCTION_WS_URL = "wss://centercrm-api.onrender.com/ws/notifications";
+
+function isHostedFrontend(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host.endsWith(".web.app") || host.endsWith(".firebaseapp.com");
+}
+
+/** API base URL. Production hosting always uses Render; local dev uses /backend proxy. */
+export const API_URL = (() => {
+  const env = process.env.NEXT_PUBLIC_API_URL;
+  if (env?.startsWith("http")) return env;
+  if (isHostedFrontend()) return PRODUCTION_API_BASE;
+  if (typeof window !== "undefined") return env || "/backend/api/v1";
+  return env || "http://127.0.0.1:8000/api/v1";
+})();
 
 /** Origin for health checks (no /api/v1 suffix). */
 export function getApiOrigin(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "");
-  }
-  if (typeof window !== "undefined") {
-    if (API_URL.startsWith("http")) {
-      return API_URL.replace(/\/api\/v1\/?$/, "");
-    }
-    return "/backend";
-  }
+  if (API_URL.startsWith("http")) return API_URL.replace(/\/api\/v1\/?$/, "");
+  if (isHostedFrontend()) return PRODUCTION_API_ORIGIN;
+  if (typeof window !== "undefined") return "/backend";
   return "http://127.0.0.1:8000";
 }
 
-export const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL ||
-  (typeof window !== "undefined"
-    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/backend/ws/notifications`
-    : "ws://127.0.0.1:8000/ws/notifications");
+export const WS_URL = (() => {
+  const env = process.env.NEXT_PUBLIC_WS_URL;
+  if (env?.startsWith("ws")) return env;
+  if (isHostedFrontend()) return PRODUCTION_WS_URL;
+  if (typeof window !== "undefined") {
+    return (
+      env ||
+      `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/backend/ws/notifications`
+    );
+  }
+  return env || "ws://127.0.0.1:8000/ws/notifications";
+})();
 
 export const LEAD_STATUSES = [
   "NEW",
