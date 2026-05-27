@@ -27,7 +27,10 @@ export DATABASE_URL="$(normalize_db_url "$DATABASE_URL")"
   sleep 2
   echo "Running database migrations..."
   cd /app/packages/database || exit 0
-  npx prisma migrate deploy || echo "WARN: prisma migrate deploy failed"
+  if ! npx prisma migrate deploy; then
+    echo "WARN: prisma migrate deploy failed, running db push..."
+    npx prisma db push --accept-data-loss --skip-generate || echo "WARN: db push failed"
+  fi
 
   if [ "${RUN_SEED:-1}" != "0" ]; then
     echo "Seeding default users..."

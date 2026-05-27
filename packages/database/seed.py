@@ -3,7 +3,7 @@
 import asyncio
 
 import bcrypt
-from prisma import Prisma
+from prisma import Json, Prisma
 
 
 def hash_password(plain: str) -> str:
@@ -39,7 +39,7 @@ async def main() -> None:
                 "lastName": "Admin",
                 "role": "MASTER_ADMIN",
                 "isActive": True,
-                "permissions": {"all": True},
+                "permissions": Json({"all": True}),
             },
             "update": {},
         },
@@ -112,17 +112,19 @@ async def main() -> None:
                 "city": "90210",
                 "message": "Need OEM preferred · Purchase: Immediately",
                 "sourceWebsite": "used-carparts.us",
-                "metadata": {
-                    "year": "2018",
-                    "make": "Toyota",
-                    "brand": "Toyota",
-                    "model": "Camry",
-                    "part_name": "Engine",
-                    "vin": "1HGCM82633A004352",
-                    "zip_code": "90210",
-                    "purchase_timeline": "Immediately",
-                    "comment": "Need OEM preferred",
-                },
+                "metadata": Json(
+                    {
+                        "year": "2018",
+                        "make": "Toyota",
+                        "brand": "Toyota",
+                        "model": "Camry",
+                        "part_name": "Engine",
+                        "vin": "1HGCM82633A004352",
+                        "zip_code": "90210",
+                        "purchase_timeline": "Immediately",
+                        "comment": "Need OEM preferred",
+                    }
+                ),
             }
         )
 
