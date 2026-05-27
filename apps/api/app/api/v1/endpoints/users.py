@@ -174,7 +174,7 @@ async def delete_user(
         data={
             "entityType": TrashEntityType.USER,
             "entityId": user_id,
-            "snapshot": snapshot,
+            "snapshot": to_prisma_json(snapshot),
             "deletedById": current.id,
         }
     )

@@ -88,7 +88,12 @@ async def delete_center(
     snapshot = serialize_center(center)
     await db.center.update(where={"id": center_id}, data={"deletedAt": datetime.now(timezone.utc)})
     await db.trashrecord.create(
-        data={"entityType": TrashEntityType.CENTER, "entityId": center_id, "snapshot": snapshot, "deletedById": user.id}
+        data={
+            "entityType": TrashEntityType.CENTER,
+            "entityId": center_id,
+            "snapshot": to_prisma_json(snapshot),
+            "deletedById": user.id,
+        }
     )
     await emit_audit(db, actor_id=user.id, action="CENTER_DELETED", entity_type="Center", entity_id=center_id, before=snapshot, ip_address=get_client_ip(request))
     return {"message": "Center moved to trash"}

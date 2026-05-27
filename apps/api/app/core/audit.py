@@ -1,7 +1,8 @@
-import json
 from typing import Any
 
 from prisma import Prisma
+
+from app.db.prisma_json import to_prisma_json
 
 
 async def emit_audit(
@@ -21,11 +22,11 @@ async def emit_audit(
         "entityId": entity_id,
     }
     if actor_id is not None:
-        data["actor"] = {"connect": {"id": actor_id}}
+        data["actorId"] = actor_id
     if before is not None:
-        data["before"] = json.loads(json.dumps(before, default=str))
+        data["before"] = to_prisma_json(before)
     if after is not None:
-        data["after"] = json.loads(json.dumps(after, default=str))
+        data["after"] = to_prisma_json(after)
     if ip_address is not None:
         data["ipAddress"] = ip_address
 

@@ -6,6 +6,7 @@ from prisma.enums import LeadStatus, Role, TrashEntityType
 from prisma.models import User
 
 from app.core.audit import emit_audit
+from app.db.prisma_json import to_prisma_json
 from app.schemas.serializers import normalize_email, normalize_phone, serialize_lead
 
 
@@ -106,7 +107,7 @@ async def soft_delete_lead(
         data={
             "entityType": TrashEntityType.LEAD,
             "entityId": lead.id,
-            "snapshot": snapshot,
+            "snapshot": to_prisma_json(snapshot),
             "deletedById": user.id,
         }
     )
