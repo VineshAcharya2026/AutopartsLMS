@@ -22,7 +22,7 @@ async def main() -> None:
             "create": {
                 "name": "Headquarters",
                 "code": "HQ",
-                "settings": {"maxAttempts": 5, "timezone": "Asia/Kolkata"},
+                "settings": Json({"maxAttempts": 5, "timezone": "Asia/Kolkata"}),
             },
             "update": {},
         },

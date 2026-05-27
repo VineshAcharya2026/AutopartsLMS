@@ -23,9 +23,9 @@ $env:NEXT_PUBLIC_WS_URL = $WsUrl
 npm run build -w @centercrm/web
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "Deploying to Firebase Hosting (autoparts-lms)..."
-firebase deploy --only hosting --project autoparts-lms
+Write-Host "Deploying to Firebase Hosting (lmsportal-e05d7)..."
+firebase deploy --only hosting --project lmsportal-e05d7
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
-Write-Host "Done! Open https://autoparts-lms.web.app/login/"
+Write-Host "Done! Open https://lmsportal-e05d7.web.app/login/"

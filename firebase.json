@@ -7,7 +7,7 @@
     }
   ],
   "hosting": {
-    "site": "autoparts-lms",
+    "site": "lmsportal-e05d7",
     "public": "apps/web/out",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [
