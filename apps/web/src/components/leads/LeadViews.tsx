@@ -196,7 +196,7 @@ export function AutoPartsLeadCard({
   );
 }
 
-function GenericLeadCard({
+export function GenericLeadCard({
   lead,
   onSelect,
   maps,
@@ -528,6 +528,7 @@ export function LeadDetailDrawer({
   role,
   onAssigned,
   maps: mapsProp,
+  layout = "drawer",
 }: {
   lead: AnyLead | null;
   open: boolean;
@@ -535,6 +536,7 @@ export function LeadDetailDrawer({
   role?: Role;
   onAssigned?: () => void;
   maps?: AssignmentMaps;
+  layout?: "drawer" | "panel";
 }) {
   const queryClient = useQueryClient();
   const internalMaps = useAssignmentMaps(open);
@@ -672,146 +674,143 @@ export function LeadDetailDrawer({
   const lastClient =
     typeof rawMeta.last_client_update === "string" ? rawMeta.last_client_update : undefined;
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity" onClick={onClose} />
-      <div className="relative w-full max-w-xl bg-[rgb(var(--card))] shadow-2xl overflow-y-auto">
-        <div className="sticky top-0 z-10 border-b border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 backdrop-blur px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-xl font-bold truncate">{String(lead.name)}</h2>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <LeadStatusBadge status={String(lead.status)} />
-              </div>
-              <AssignmentLine maps={maps} lead={lead} />
-            </div>
-            <button onClick={onClose} className="btn-secondary !px-3 !py-1.5 shrink-0">
-              Close
-            </button>
-          </div>
+  const detailHeader = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-xl font-bold truncate">{String(lead.name)}</h2>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <LeadStatusBadge status={String(lead.status)} />
         </div>
-        <div className="p-5 space-y-5">
-          <AutoPartsDetailSection lead={lead} />
+        <AssignmentLine maps={maps} lead={lead} />
+      </div>
+      <button onClick={onClose} className="btn-secondary !px-3 !py-1.5 shrink-0">
+        {layout === "panel" ? "Back to board" : "Close"}
+      </button>
+    </div>
+  );
 
-          <DrawerSection title="Contact & lead info" accent="blue">
-            <div className="grid grid-cols-2 gap-4">
-              <DetailField label="Phone" value={String(leadField(lead, "phone", "phone") || "—")} />
-              <DetailField label="Email" value={String(leadField(lead, "email", "email") || "—")} />
-              <DetailField label="Source" value={String(leadField(lead, "source", "source") || "—")} />
-              <DetailField
-                label={isAutoPartsLead(lead) ? "ZIP Code" : "City"}
-                value={String(zipCodeForLead(lead) || leadField(lead, "city", "city") || "—")}
-              />
-              <DetailField
-                label="Attempts"
-                value={String(leadField(lead, "attempt_count", "attemptCount") ?? 0)}
-              />
-              <DetailField
-                label="Inquiries"
-                value={String(leadField(lead, "inquiry_count", "inquiryCount") ?? 0)}
+  const detailBody = (
+    <>
+      <AutoPartsDetailSection lead={lead} />
+      <DrawerSection title="Contact & lead info" accent="blue">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <DetailField label="Phone" value={String(leadField(lead, "phone", "phone") || "—")} />
+          <DetailField label="Email" value={String(leadField(lead, "email", "email") || "—")} />
+          <DetailField label="Source" value={String(leadField(lead, "source", "source") || "—")} />
+          <DetailField
+            label={isAutoPartsLead(lead) ? "ZIP Code" : "City"}
+            value={String(zipCodeForLead(lead) || leadField(lead, "city", "city") || "—")}
+          />
+          <DetailField
+            label="Attempts"
+            value={String(leadField(lead, "attempt_count", "attemptCount") ?? 0)}
+          />
+          <DetailField
+            label="Inquiries"
+            value={String(leadField(lead, "inquiry_count", "inquiryCount") ?? 0)}
+          />
+        </div>
+        {Boolean(leadField(lead, "message", "message")) && !isAutoPartsLead(lead) && (
+          <div className="mt-4 pt-4 border-t border-[rgb(var(--border))]">
+            <DetailField label="Message" value={String(leadField(lead, "message", "message"))} />
+          </div>
+        )}
+      </DrawerSection>
+      {lastClient && (
+        <DrawerSection title="Last client response" accent="emerald">
+          <p className="text-sm leading-relaxed">{lastClient}</p>
+        </DrawerSection>
+      )}
+      {canWorkLead && (
+        <DrawerSection title="Update lead" accent="violet">
+          <div>
+            <label className="block text-sm mb-1">Status</label>
+            <select className="input w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+          {closing && (
+            <div>
+              <label className="block text-sm mb-1 text-red-600">Closing remark (required)</label>
+              <textarea
+                className="input w-full min-h-[80px]"
+                value={closeRemark}
+                onChange={(e) => setCloseRemark(e.target.value)}
+                placeholder="Why is this lead being closed?"
               />
             </div>
-            {Boolean(leadField(lead, "message", "message")) && !isAutoPartsLead(lead) && (
-              <div className="mt-4 pt-4 border-t border-[rgb(var(--border))]">
-                <DetailField label="Message" value={String(leadField(lead, "message", "message"))} />
-              </div>
-            )}
-          </DrawerSection>
-
-          {lastClient && (
-            <DrawerSection title="Last client response" accent="emerald">
-              <p className="text-sm leading-relaxed">{lastClient}</p>
-            </DrawerSection>
           )}
+          <div>
+            <label className="block text-sm mb-1">Client response</label>
+            <textarea
+              className="input w-full min-h-[60px]"
+              value={clientUpdate}
+              onChange={(e) => setClientUpdate(e.target.value)}
+              placeholder="What did the client say?"
+            />
+          </div>
+          <button
+            className="btn-primary w-full"
+            disabled={
+              updateMutation.isPending ||
+              (closing && !closeRemark.trim()) ||
+              (status === String(lead.status) && !clientUpdate.trim())
+            }
+            onClick={() => updateMutation.mutate()}
+          >
+            {updateMutation.isPending ? "Saving..." : "Save update"}
+          </button>
+          <button
+            className="btn-secondary w-full transition-all duration-200 hover:border-emerald-300"
+            disabled={callMutation.isPending}
+            onClick={() => callMutation.mutate()}
+          >
+            {callMutation.isPending ? "Logging..." : "Log outbound call"}
+          </button>
+        </DrawerSection>
+      )}
+      {canWorkLead && (
+        <DrawerSection title="Remarks" accent="orange">
+          <ul className="space-y-2 max-h-44 overflow-y-auto">
+            {(remarks ?? []).map((r) => (
+              <li key={r.id} className="lead-remark-card text-sm bg-white/50 dark:bg-slate-900/50">
+                <p className="text-xs font-medium text-[rgb(var(--muted))]">
+                  {r.author_name || "Agent"} · {new Date(r.created_at).toLocaleString()}
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed">{r.body}</p>
+              </li>
+            ))}
+          </ul>
+          <textarea
+            className="input w-full min-h-[60px] mt-3"
+            value={newRemark}
+            onChange={(e) => setNewRemark(e.target.value)}
+            placeholder="Add a remark..."
+          />
+          <button
+            className="btn-secondary w-full mt-3"
+            disabled={!newRemark.trim() || remarkMutation.isPending}
+            onClick={() => remarkMutation.mutate()}
+          >
+            {remarkMutation.isPending ? "Adding..." : "Add remark"}
+          </button>
+        </DrawerSection>
+      )}
+      {canWorkLead && (
+        <DrawerSection title="Activity timeline" accent="default">
+          <ActivityTimeline items={activity ?? []} />
+        </DrawerSection>
+      )}
+    </>
+  );
 
-          {canWorkLead && (
-            <DrawerSection title="Update lead" accent="violet">
-              <div>
-                <label className="block text-sm mb-1">Status</label>
-                <select className="input w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s.replace("_", " ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {closing && (
-                <div>
-                  <label className="block text-sm mb-1 text-red-600">Closing remark (required)</label>
-                  <textarea
-                    className="input w-full min-h-[80px]"
-                    value={closeRemark}
-                    onChange={(e) => setCloseRemark(e.target.value)}
-                    placeholder="Why is this lead being closed?"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="block text-sm mb-1">Client response</label>
-                <textarea
-                  className="input w-full min-h-[60px]"
-                  value={clientUpdate}
-                  onChange={(e) => setClientUpdate(e.target.value)}
-                  placeholder="What did the client say?"
-                />
-              </div>
-              <button
-                className="btn-primary w-full"
-                disabled={
-                  updateMutation.isPending ||
-                  (closing && !closeRemark.trim()) ||
-                  (status === String(lead.status) && !clientUpdate.trim())
-                }
-                onClick={() => updateMutation.mutate()}
-              >
-                {updateMutation.isPending ? "Saving..." : "Save update"}
-              </button>
-              <button
-                className="btn-secondary w-full transition-all duration-200 hover:border-emerald-300"
-                disabled={callMutation.isPending}
-                onClick={() => callMutation.mutate()}
-              >
-                {callMutation.isPending ? "Logging..." : "Log outbound call"}
-              </button>
-            </DrawerSection>
-          )}
-
-          {canWorkLead && (
-            <DrawerSection title="Remarks" accent="orange">
-              <ul className="space-y-2 max-h-44 overflow-y-auto">
-                {(remarks ?? []).map((r) => (
-                  <li key={r.id} className="lead-remark-card text-sm bg-white/50 dark:bg-slate-900/50">
-                    <p className="text-xs font-medium text-[rgb(var(--muted))]">
-                      {r.author_name || "Agent"} · {new Date(r.created_at).toLocaleString()}
-                    </p>
-                    <p className="mt-1.5 text-sm leading-relaxed">{r.body}</p>
-                  </li>
-                ))}
-              </ul>
-              <textarea
-                className="input w-full min-h-[60px]"
-                value={newRemark}
-                onChange={(e) => setNewRemark(e.target.value)}
-                placeholder="Add a remark..."
-              />
-              <button
-                className="btn-secondary w-full mt-3"
-                disabled={!newRemark.trim() || remarkMutation.isPending}
-                onClick={() => remarkMutation.mutate()}
-              >
-                {remarkMutation.isPending ? "Adding..." : "Add remark"}
-              </button>
-            </DrawerSection>
-          )}
-
-          {canWorkLead && (
-            <DrawerSection title="Activity timeline" accent="default">
-              <ActivityTimeline items={activity ?? []} />
-            </DrawerSection>
-          )}
-
-          {role === "MASTER_ADMIN" && (
+  const detailFooter = (
+    <>
+      {role === "MASTER_ADMIN" && (
             <DrawerSection title="Route to Admin" accent="blue">
               <p className="text-xs text-[rgb(var(--muted))]">
                 Current: {currentAdminId ? "assigned" : "unassigned"}
@@ -893,32 +892,63 @@ export function LeadDetailDrawer({
               </button>
             </DrawerSection>
           )}
+    </>
+  );
+
+  const confirmModal = confirmDelete && (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDelete(false)} />
+      <div className="relative w-full max-w-md card p-6">
+        <h3 className="font-semibold mb-2">Delete Lead</h3>
+        <p className="text-sm text-[rgb(var(--muted))] mb-4">
+          Move &quot;{String(lead.name)}&quot; to Trash?
+        </p>
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setConfirmDelete(false)}>
+            Cancel
+          </button>
+          <button
+            className="btn-primary bg-red-600 hover:bg-red-700"
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteMutation.mutate()}
+          >
+            {deleteMutation.isPending ? "Deleting..." : "Move to Trash"}
+          </button>
         </div>
       </div>
+    </div>
+  );
 
-      {confirmDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDelete(false)} />
-          <div className="relative w-full max-w-md card p-6">
-            <h3 className="font-semibold mb-2">Delete Lead</h3>
-            <p className="text-sm text-[rgb(var(--muted))] mb-4">
-              Move &quot;{String(lead.name)}&quot; to Trash?
-            </p>
-            <div className="flex justify-end gap-2">
-              <button className="btn-secondary" onClick={() => setConfirmDelete(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary bg-red-600 hover:bg-red-700"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-              >
-                {deleteMutation.isPending ? "Deleting..." : "Move to Trash"}
-              </button>
-            </div>
+  if (layout === "panel") {
+    return (
+      <>
+        <div className="card overflow-hidden dashboard-enter flex flex-col min-h-[min(720px,calc(100vh-14rem))] border-2 border-orange-200/60 dark:border-orange-900/40">
+          <div className="border-b border-[rgb(var(--border))] bg-gradient-to-r from-orange-50/80 to-blue-50/50 dark:from-orange-950/30 dark:to-blue-950/20 px-5 py-4 shrink-0">
+            {detailHeader}
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            {detailBody}
+            {detailFooter}
           </div>
         </div>
-      )}
+        {confirmModal}
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity" onClick={onClose} />
+      <div className="relative w-full max-w-xl bg-[rgb(var(--card))] shadow-2xl overflow-y-auto max-h-screen">
+        <div className="sticky top-0 z-10 border-b border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 backdrop-blur px-5 py-4">
+          {detailHeader}
+        </div>
+        <div className="p-5 space-y-5">
+          {detailBody}
+          {detailFooter}
+        </div>
+      </div>
+      {confirmModal}
     </div>
   );
 }

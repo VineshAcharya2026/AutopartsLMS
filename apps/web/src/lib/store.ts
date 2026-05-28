@@ -37,7 +37,7 @@ export const useUIStore = create<UIState>()(
     (set, get) => ({
       theme: "light",
       sidebarOpen: true,
-      leadView: "table",
+      leadView: "kanban",
       toggleTheme: () => {
         const next = get().theme === "light" ? "dark" : "light";
         document.documentElement.classList.toggle("dark", next === "dark");
