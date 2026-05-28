@@ -26,7 +26,7 @@ async def build_lead_activity_timeline(db: Prisma, lead_id: str) -> list[dict[st
             "direction": "INBOUND",
             "title": "Lead received",
             "body": f"Source: {lead.source}"
-            + (f" · {lead.sourceWebsite}" if lead.sourceWebsite else ""),
+            + (f" | {lead.sourceWebsite}" if lead.sourceWebsite else ""),
             "status": str(lead.status),
             "actor_name": None,
             "created_at": lead.createdAt,

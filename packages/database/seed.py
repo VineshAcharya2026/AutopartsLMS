@@ -1,4 +1,4 @@
-"""Seed database with default users, demo centers, agents, and interlinked leads."""
+"""Seed database: 5 centers, 5 admins, 5 agents, 10 interlinked leads."""
 
 import asyncio
 
@@ -21,9 +21,36 @@ AUTO_PARTS_META = [
     {"year": "2019", "make": "Chevrolet", "model": "Malibu", "part_name": "Brake pads", "vin": "1G1ZD5ST0KF123789", "zip_code": "75201", "purchase_timeline": "Within 2 weeks", "comment": "Front set"},
 ]
 
+LEAD_SPECS = [
+    ("seed-lead-01", "Rahul Sharma", "+919876543210", "rahul@example.com", "HQ", "NEW", False),
+    ("seed-lead-02", "Priya Patel", "+919876543211", "priya@example.com", "NORTH", "ATTEMPTED", False),
+    ("seed-lead-03", "Amit Kumar", "+919876543212", "amit@example.com", "SOUTH", "FOLLOW_UP", False),
+    ("seed-lead-04", "Sneha Reddy", "+919876543213", "sneha@example.com", "EAST", "INTERESTED", False),
+    ("seed-lead-05", "Vikram Singh", "+919876543214", "vikram@example.com", "WEST", "CALLBACK", False),
+    ("seed-auto-parts-1", "John Doe", "5551234567", "john@example.com", "HQ", "NEW", True),
+    ("seed-auto-parts-2", "Jane Smith", "5559876543", "jane@example.com", "NORTH", "ATTEMPTED", True),
+    ("seed-auto-parts-3", "Mike Johnson", "5554443322", "mike@example.com", "SOUTH", "FOLLOW_UP", True),
+    ("seed-auto-parts-4", "Sarah Lee", "5551112233", "sarah@example.com", "EAST", "INTERESTED", True),
+    ("seed-auto-parts-5", "Tom Brown", "5557778899", "tom@example.com", "WEST", "UNATTEMPTED", True),
+]
+
+# Legacy login emails kept for demo UI
+LEGACY_AGENT_EMAIL = "agent@centercrm.com"
+LEGACY_ADMIN_EMAIL = "admin@centercrm.com"
+
 
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def agent_email(code: str) -> str:
+    if code == "HQ":
+        return LEGACY_AGENT_EMAIL
+    return f"agent.{code.lower()}@centercrm.com"
+
+
+def agent_id(code: str) -> str:
+    return f"seed-agent-{code.lower()}"
 
 
 async def main() -> None:
@@ -33,7 +60,7 @@ async def main() -> None:
     password_hash = hash_password("Admin@123")
     center_by_code: dict[str, object] = {}
     admin_by_center: dict[str, object] = {}
-    agents_by_center: dict[str, list] = {}
+    agent_by_center: dict[str, object] = {}
 
     await db.user.upsert(
         where={"id": "seed-master-admin"},
@@ -48,7 +75,7 @@ async def main() -> None:
                 "isActive": True,
                 "permissions": Json({"all": True}),
             },
-            "update": {},
+            "update": {"passwordHash": password_hash, "isActive": True},
         },
     )
 
@@ -61,76 +88,66 @@ async def main() -> None:
                     "code": code,
                     "settings": Json({"maxAttempts": 5, "timezone": "Asia/Kolkata"}),
                 },
-                "update": {},
+                "update": {"name": name},
             },
         )
         center_by_code[code] = center
 
+        admin_email = LEGACY_ADMIN_EMAIL if code == "HQ" else f"admin.{code.lower()}@centercrm.com"
+        admin_seed_id = "seed-admin" if code == "HQ" else f"seed-admin-{code.lower()}"
+
         admin = await db.user.upsert(
-            where={"id": f"seed-admin-{code.lower()}"},
+            where={"id": admin_seed_id},
             data={
                 "create": {
-                    "id": f"seed-admin-{code.lower()}",
-                    "email": f"admin.{code.lower()}@centercrm.com",
+                    "id": admin_seed_id,
+                    "email": admin_email,
                     "passwordHash": password_hash,
-                    "firstName": f"{name}",
+                    "firstName": name.split()[0],
                     "lastName": "Admin",
                     "role": "ADMIN",
                     "centerId": center.id,
                     "isActive": True,
                 },
-                "update": {},
+                "update": {
+                    "centerId": center.id,
+                    "passwordHash": password_hash,
+                    "isActive": True,
+                },
             },
         )
         admin_by_center[code] = admin
 
-        agents_by_center[code] = []
-        for i in range(1, 4):
-            agent = await db.user.upsert(
-                where={"id": f"seed-agent-{code.lower()}-{i}"},
-                data={
-                    "create": {
-                        "id": f"seed-agent-{code.lower()}-{i}",
-                        "email": f"agent{i}.{code.lower()}@centercrm.com",
-                        "passwordHash": password_hash,
-                        "firstName": f"Agent{i}",
-                        "lastName": code.title(),
-                        "role": "AGENT",
-                        "centerId": center.id,
-                        "isActive": True,
-                    },
-                    "update": {},
+        agent = await db.user.upsert(
+            where={"id": agent_id(code)},
+            data={
+                "create": {
+                    "id": agent_id(code),
+                    "email": agent_email(code),
+                    "passwordHash": password_hash,
+                    "firstName": "Sales",
+                    "lastName": f"{code.title()} Agent",
+                    "role": "AGENT",
+                    "centerId": center.id,
+                    "isActive": True,
                 },
-            )
-            agents_by_center[code].append(agent)
-
-    lead_specs = [
-        ("seed-lead-01", "Rahul Sharma", "+919876543210", "rahul@example.com", "HQ", 0, "NEW", False),
-        ("seed-lead-02", "Priya Patel", "+919876543211", "priya@example.com", "NORTH", 1, "ATTEMPTED", False),
-        ("seed-lead-03", "Amit Kumar", "+919876543212", "amit@example.com", "SOUTH", 2, "FOLLOW_UP", False),
-        ("seed-lead-04", "Sneha Reddy", "+919876543213", "sneha@example.com", "EAST", 0, "INTERESTED", False),
-        ("seed-lead-05", "Vikram Singh", "+919876543214", "vikram@example.com", "WEST", 1, "CALLBACK", False),
-        ("seed-auto-parts-1", "John Doe", "5551234567", "john@example.com", "HQ", 0, "NEW", True),
-        ("seed-auto-parts-2", "Jane Smith", "5559876543", "jane@example.com", "NORTH", 1, "ATTEMPTED", True),
-        ("seed-auto-parts-3", "Mike Johnson", "5554443322", "mike@example.com", "SOUTH", 2, "FOLLOW_UP", True),
-        ("seed-auto-parts-4", "Sarah Lee", "5551112233", "sarah@example.com", "EAST", 0, "INTERESTED", True),
-        ("seed-auto-parts-5", "Tom Brown", "5557778899", "tom@example.com", "WEST", 1, "UNATTEMPTED", True),
-    ]
+                "update": {
+                    "centerId": center.id,
+                    "passwordHash": password_hash,
+                    "isActive": True,
+                },
+            },
+        )
+        agent_by_center[code] = agent
 
     created_leads = []
-    for lead_id, name, phone, email, center_code, agent_idx, status, is_auto in lead_specs:
+    for idx, (lead_id, name, phone, email, center_code, status, is_auto) in enumerate(LEAD_SPECS):
         center = center_by_code[center_code]
         admin = admin_by_center[center_code]
-        agent = agents_by_center[center_code][agent_idx % 3]
-        meta = AUTO_PARTS_META[len(created_leads) % len(AUTO_PARTS_META)] if is_auto else {}
+        agent = agent_by_center[center_code]
+        meta = AUTO_PARTS_META[idx % len(AUTO_PARTS_META)] if is_auto else {}
 
-        existing = await db.lead.find_first(where={"id": lead_id})
-        if existing:
-            created_leads.append(existing)
-            continue
-
-        data = {
-            "id": lead_id,
+        base = {
             "name": name,
             "phone": phone,
             "email": email,
@@ -142,26 +159,32 @@ async def main() -> None:
             "attemptCount": 1 if status in ("ATTEMPTED", "FOLLOW_UP", "INTERESTED", "CALLBACK") else 0,
             "city": meta.get("zip_code", "Mumbai") if not is_auto else meta.get("zip_code"),
             "sourceWebsite": "used-carparts.us" if is_auto else "centercrm.demo",
+            "deletedAt": None,
         }
         if is_auto:
-            data["courseInterest"] = meta.get("part_name")
-            data["message"] = f"Purchase: {meta.get('purchase_timeline')} · {meta.get('comment', '')}"
-            data["metadata"] = Json(meta)
+            base["courseInterest"] = meta.get("part_name")
+            base["message"] = f"Purchase: {meta.get('purchase_timeline')} | {meta.get('comment', '')}"
+            base["metadata"] = Json(meta)
         else:
-            data["courseInterest"] = "Auto Parts Management"
+            base["courseInterest"] = "Auto Parts Management"
 
-        lead = await db.lead.create(data=data)
+        existing = await db.lead.find_first(where={"id": lead_id})
+        if existing:
+            lead = await db.lead.update(where={"id": lead_id}, data=base)
+        else:
+            lead = await db.lead.create(data={"id": lead_id, **base})
         created_leads.append(lead)
 
     remark_samples = [
-        ("Initial outreach — left voicemail", "seed-agent-hq-1"),
-        ("Customer asked for quote via email", "seed-agent-north-2"),
-        ("Scheduled callback for tomorrow 10am", "seed-agent-south-1"),
-        ("Sent parts catalog PDF", "seed-agent-east-3"),
-        ("Price match requested — pending approval", "seed-agent-west-2"),
+        ("Initial outreach - left voicemail", "HQ"),
+        ("Customer asked for quote via email", "NORTH"),
+        ("Scheduled callback for tomorrow 10am", "SOUTH"),
+        ("Sent parts catalog PDF", "EAST"),
+        ("Price match requested - pending approval", "WEST"),
     ]
     for i, lead in enumerate(created_leads[:5]):
-        body, author_id = remark_samples[i]
+        body, center_code = remark_samples[i]
+        author_id = agent_id(center_code)
         exists = await db.remark.find_first(where={"leadId": lead.id, "body": body})
         if not exists:
             await db.remark.create(data={"leadId": lead.id, "authorId": author_id, "body": body})
@@ -174,12 +197,19 @@ async def main() -> None:
                     "leadId": lead.id,
                     "direction": "OUTBOUND",
                     "duration": 120 + i * 30,
-                    "outcome": "Reached — discussed requirements",
+                    "outcome": "Reached - discussed requirements",
                 }
             )
 
+    center_count = await db.center.count()
+    agent_count = await db.user.count(where={"role": "AGENT", "deletedAt": None})
+    lead_count = await db.lead.count(where={"deletedAt": None})
+
     await db.disconnect()
-    print("Python seed completed: 5 centers, 5 admins, 15 agents, 10 leads with sample activity.")
+    print(
+        f"Seed complete: {center_count} centers, {agent_count} agents, {lead_count} leads "
+        "(target: 5 centers, 5 agents, 10 leads)."
+    )
 
 
 if __name__ == "__main__":
