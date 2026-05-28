@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     leads,
     notifications,
     routing,
+    system,
     trash,
     users,
 )
@@ -28,3 +29,4 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=["
 api_router.include_router(trash.router, prefix="/trash", tags=["trash"])
 api_router.include_router(audit.router, prefix="/audit-logs", tags=["audit"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(system.router, prefix="/system", tags=["system"])

@@ -72,7 +72,7 @@ async def list_agents(
     db: Prisma = Depends(get_db),
     user=Depends(require_roles(Role.ADMIN, Role.MASTER_ADMIN)),
 ):
-    where = {"role": Role.AGENT, "deletedAt": None}
+    where = {"role": Role.AGENT, "deletedAt": None, "isActive": True}
     if user.role == Role.ADMIN:
         where["centerId"] = user.centerId
     agents = await db.user.find_many(where=where, order={"createdAt": "desc"})

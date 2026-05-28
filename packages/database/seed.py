@@ -50,6 +50,9 @@ def agent_email(code: str) -> str:
 
 
 def agent_id(code: str) -> str:
+    # HQ keeps legacy id so agent@centercrm.com login still works
+    if code == "HQ":
+        return "seed-agent"
     return f"seed-agent-{code.lower()}"
 
 
@@ -200,6 +203,18 @@ async def main() -> None:
                     "outcome": "Reached - discussed requirements",
                 }
             )
+
+    valid_agent_ids = {agent_id(code) for code, _ in CENTERS}
+    extra_agents = await db.user.find_many(
+        where={
+            "role": "AGENT",
+            "id": {"not_in": list(valid_agent_ids)},
+            "email": {"contains": "@centercrm.com"},
+        }
+    )
+    for user in extra_agents:
+        if user.id.startswith("seed-agent"):
+            await db.user.update(where={"id": user.id}, data={"isActive": False})
 
     center_count = await db.center.count()
     agent_count = await db.user.count(where={"role": "AGENT", "deletedAt": None})
