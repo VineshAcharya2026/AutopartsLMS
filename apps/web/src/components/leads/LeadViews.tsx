@@ -30,6 +30,16 @@ import {
   vehicleTitle,
   zipCodeForLead,
 } from "@/components/leads/autoPartsLead";
+import {
+  ACTIVITY_CHANNEL_BORDER,
+  DetailField,
+  DrawerSection,
+} from "@/components/leads/leadDetailUi";
+
+const leadCardAuto =
+  "card lead-card-interactive lead-card-auto border-l-4 border-l-orange-500";
+const leadCardGeneric =
+  "card lead-card-interactive lead-card-generic border-l-4 border-l-blue-400";
 
 export type { AnyLead } from "@/components/leads/autoPartsLead";
 
@@ -91,7 +101,7 @@ function AutoPartsDetailSection({ lead }: { lead: AnyLead }) {
   ].filter((row) => row.value);
 
   return (
-    <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-4 dark:border-orange-900/40 dark:bg-orange-950/20">
+    <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-4 transition-all duration-300 ease-out hover:border-orange-300 hover:shadow-md hover:shadow-orange-100/40 dark:border-orange-900/40 dark:bg-orange-950/20 dark:hover:border-orange-700 dark:hover:shadow-orange-900/20">
       <p className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
         Vehicle &amp; Part Quote
       </p>
@@ -127,7 +137,10 @@ export function AutoPartsLeadCard({
 
   if (compact) {
     return (
-      <div className="card p-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => onSelect?.(lead)}>
+      <div
+        className={cn(leadCardAuto, "p-3")}
+        onClick={() => onSelect?.(lead)}
+      >
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-medium text-sm">{vehicleTitle(meta)}</p>
@@ -142,10 +155,7 @@ export function AutoPartsLeadCard({
   }
 
   return (
-    <div
-      className="card p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-orange-500"
-      onClick={() => onSelect?.(lead)}
-    >
+    <div className={cn(leadCardAuto, "p-4")} onClick={() => onSelect?.(lead)}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-orange-600 dark:text-orange-400">
@@ -196,10 +206,7 @@ function GenericLeadCard({
   maps?: AssignmentMaps;
 }) {
   return (
-    <div
-      className="card p-4 cursor-pointer hover:shadow-md transition-shadow"
-      onClick={() => onSelect?.(lead)}
-    >
+    <div className={cn(leadCardGeneric, "p-4")} onClick={() => onSelect?.(lead)}>
       <div className="flex items-start justify-between">
         <h3 className="font-semibold">{String(lead.name)}</h3>
         <LeadStatusBadge status={String(lead.status)} />
@@ -328,7 +335,12 @@ export function LeadTable({
               return (
                 <tr
                   key={String(lead.id)}
-                  className="border-b border-[rgb(var(--border))] hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer"
+                  className={cn(
+                    "border-b border-[rgb(var(--border))] cursor-pointer transition-colors duration-200",
+                    isAutoPartsLead(lead)
+                      ? "hover:bg-orange-50/60 dark:hover:bg-orange-950/25"
+                      : "hover:bg-blue-50/50 dark:hover:bg-blue-950/25"
+                  )}
                   onClick={() => onSelect?.(lead)}
                 >
                   <td className="px-4 py-3 font-medium">{String(lead.name)}</td>
@@ -402,7 +414,7 @@ export function LeadKanban({ columns }: { columns: Record<string, AnyLead[]> }) 
               isAutoPartsLead(lead) ? (
                 <AutoPartsLeadCard key={String(lead.id)} lead={lead} compact />
               ) : (
-                <div key={String(lead.id)} className="card p-3">
+                <div key={String(lead.id)} className={cn(leadCardGeneric, "p-3")}>
                   <p className="font-medium text-sm">{String(lead.name)}</p>
                   <p className="text-xs text-[rgb(var(--muted))] mt-1">
                     {String(leadField(lead, "phone", "phone") || leadField(lead, "email", "email") || "—")}
@@ -482,20 +494,27 @@ function ActivityTimeline({ items }: { items: LeadActivityItem[] }) {
     return <p className="text-sm text-[rgb(var(--muted))]">No activity yet.</p>;
   }
   return (
-    <ul className="space-y-3 max-h-64 overflow-y-auto">
+    <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
       {items.map((item) => (
-        <li key={item.id} className="text-sm border-l-2 border-blue-200 pl-3 dark:border-blue-800">
+        <li
+          key={item.id}
+          className={cn(
+            "text-sm border-l-[3px] pl-3 py-2 rounded-r-lg transition-colors duration-200",
+            "hover:bg-white/60 dark:hover:bg-slate-800/50",
+            ACTIVITY_CHANNEL_BORDER[item.channel] ?? ACTIVITY_CHANNEL_BORDER.SYSTEM
+          )}
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-xs uppercase text-[rgb(var(--muted))]">
+            <span className="font-semibold text-xs uppercase tracking-wide text-[rgb(var(--muted))]">
               {item.channel}
               {item.actor_name ? ` · ${item.actor_name}` : ""}
             </span>
-            <span className="text-xs text-[rgb(var(--muted))] shrink-0">
+            <span className="text-xs text-[rgb(var(--muted))] shrink-0 tabular-nums">
               {new Date(item.created_at).toLocaleString()}
             </span>
           </div>
-          <p className="font-medium mt-0.5">{item.title}</p>
-          {item.body && <p className="text-[rgb(var(--muted))] mt-0.5">{item.body}</p>}
+          <p className="font-semibold text-sm mt-0.5">{item.title}</p>
+          {item.body && <p className="text-sm text-[rgb(var(--muted))] mt-0.5 leading-relaxed">{item.body}</p>}
         </li>
       ))}
     </ul>
@@ -655,62 +674,58 @@ export function LeadDetailDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-[rgb(var(--card))] shadow-xl overflow-y-auto">
-        <div className="sticky top-0 flex items-center justify-between border-b border-[rgb(var(--border))] p-4 bg-[rgb(var(--card))] z-10">
-          <h2 className="text-lg font-semibold">{String(lead.name)}</h2>
-          <button onClick={onClose} className="btn-secondary !px-2 !py-1">
-            Close
-          </button>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity" onClick={onClose} />
+      <div className="relative w-full max-w-xl bg-[rgb(var(--card))] shadow-2xl overflow-y-auto">
+        <div className="sticky top-0 z-10 border-b border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 backdrop-blur px-5 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold truncate">{String(lead.name)}</h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <LeadStatusBadge status={String(lead.status)} />
+              </div>
+              <AssignmentLine maps={maps} lead={lead} />
+            </div>
+            <button onClick={onClose} className="btn-secondary !px-3 !py-1.5 shrink-0">
+              Close
+            </button>
+          </div>
         </div>
-        <div className="p-4 space-y-4">
+        <div className="p-5 space-y-5">
           <AutoPartsDetailSection lead={lead} />
-          <div>
-            <LeadStatusBadge status={String(lead.status)} />
-            <AssignmentLine maps={maps} lead={lead} />
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-[rgb(var(--muted))]">Phone</span>
-              <p>{String(leadField(lead, "phone", "phone") || "—")}</p>
+
+          <DrawerSection title="Contact & lead info" accent="blue">
+            <div className="grid grid-cols-2 gap-4">
+              <DetailField label="Phone" value={String(leadField(lead, "phone", "phone") || "—")} />
+              <DetailField label="Email" value={String(leadField(lead, "email", "email") || "—")} />
+              <DetailField label="Source" value={String(leadField(lead, "source", "source") || "—")} />
+              <DetailField
+                label={isAutoPartsLead(lead) ? "ZIP Code" : "City"}
+                value={String(zipCodeForLead(lead) || leadField(lead, "city", "city") || "—")}
+              />
+              <DetailField
+                label="Attempts"
+                value={String(leadField(lead, "attempt_count", "attemptCount") ?? 0)}
+              />
+              <DetailField
+                label="Inquiries"
+                value={String(leadField(lead, "inquiry_count", "inquiryCount") ?? 0)}
+              />
             </div>
-            <div>
-              <span className="text-[rgb(var(--muted))]">Email</span>
-              <p>{String(leadField(lead, "email", "email") || "—")}</p>
-            </div>
-            <div>
-              <span className="text-[rgb(var(--muted))]">Source</span>
-              <p>{String(leadField(lead, "source", "source") || "—")}</p>
-            </div>
-            <div>
-              <span className="text-[rgb(var(--muted))]">{isAutoPartsLead(lead) ? "ZIP Code" : "City"}</span>
-              <p>{String(zipCodeForLead(lead) || leadField(lead, "city", "city") || "—")}</p>
-            </div>
-            <div>
-              <span className="text-[rgb(var(--muted))]">Attempts</span>
-              <p>{String(leadField(lead, "attempt_count", "attemptCount") ?? 0)}</p>
-            </div>
-            <div>
-              <span className="text-[rgb(var(--muted))]">Inquiries</span>
-              <p>{String(leadField(lead, "inquiry_count", "inquiryCount") ?? 0)}</p>
-            </div>
-          </div>
-          {Boolean(leadField(lead, "message", "message")) && !isAutoPartsLead(lead) && (
-            <div className="text-sm">
-              <span className="text-[rgb(var(--muted))]">Message</span>
-              <p className="mt-1">{String(leadField(lead, "message", "message"))}</p>
-            </div>
-          )}
+            {Boolean(leadField(lead, "message", "message")) && !isAutoPartsLead(lead) && (
+              <div className="mt-4 pt-4 border-t border-[rgb(var(--border))]">
+                <DetailField label="Message" value={String(leadField(lead, "message", "message"))} />
+              </div>
+            )}
+          </DrawerSection>
+
           {lastClient && (
-            <div className="text-sm rounded-lg bg-slate-50 dark:bg-slate-900 p-3">
-              <span className="text-[rgb(var(--muted))]">Last client response</span>
-              <p className="mt-1">{lastClient}</p>
-            </div>
+            <DrawerSection title="Last client response" accent="emerald">
+              <p className="text-sm leading-relaxed">{lastClient}</p>
+            </DrawerSection>
           )}
 
           {canWorkLead && (
-            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
-              <h3 className="font-semibold">Update lead</h3>
+            <DrawerSection title="Update lead" accent="violet">
               <div>
                 <label className="block text-sm mb-1">Status</label>
                 <select className="input w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -753,25 +768,24 @@ export function LeadDetailDrawer({
                 {updateMutation.isPending ? "Saving..." : "Save update"}
               </button>
               <button
-                className="btn-secondary w-full"
+                className="btn-secondary w-full transition-all duration-200 hover:border-emerald-300"
                 disabled={callMutation.isPending}
                 onClick={() => callMutation.mutate()}
               >
                 {callMutation.isPending ? "Logging..." : "Log outbound call"}
               </button>
-            </div>
+            </DrawerSection>
           )}
 
           {canWorkLead && (
-            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
-              <h3 className="font-semibold">Remarks</h3>
-              <ul className="space-y-2 max-h-40 overflow-y-auto">
+            <DrawerSection title="Remarks" accent="orange">
+              <ul className="space-y-2 max-h-44 overflow-y-auto">
                 {(remarks ?? []).map((r) => (
-                  <li key={r.id} className="text-sm rounded-lg bg-slate-50 dark:bg-slate-900 p-2">
-                    <p className="text-xs text-[rgb(var(--muted))]">
+                  <li key={r.id} className="lead-remark-card text-sm bg-white/50 dark:bg-slate-900/50">
+                    <p className="text-xs font-medium text-[rgb(var(--muted))]">
                       {r.author_name || "Agent"} · {new Date(r.created_at).toLocaleString()}
                     </p>
-                    <p className="mt-1">{r.body}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed">{r.body}</p>
                   </li>
                 ))}
               </ul>
@@ -782,25 +796,23 @@ export function LeadDetailDrawer({
                 placeholder="Add a remark..."
               />
               <button
-                className="btn-secondary w-full"
+                className="btn-secondary w-full mt-3"
                 disabled={!newRemark.trim() || remarkMutation.isPending}
                 onClick={() => remarkMutation.mutate()}
               >
                 {remarkMutation.isPending ? "Adding..." : "Add remark"}
               </button>
-            </div>
+            </DrawerSection>
           )}
 
           {canWorkLead && (
-            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
-              <h3 className="font-semibold">Activity timeline</h3>
+            <DrawerSection title="Activity timeline" accent="default">
               <ActivityTimeline items={activity ?? []} />
-            </div>
+            </DrawerSection>
           )}
 
           {role === "MASTER_ADMIN" && (
-            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
-              <h3 className="font-semibold">Route to Admin</h3>
+            <DrawerSection title="Route to Admin" accent="blue">
               <p className="text-xs text-[rgb(var(--muted))]">
                 Current: {currentAdminId ? "assigned" : "unassigned"}
                 {currentCenterId ? ` · center set` : ""}
@@ -836,12 +848,11 @@ export function LeadDetailDrawer({
               >
                 {assignMutation.isPending ? "Routing..." : "Route to Admin"}
               </button>
-            </div>
+            </DrawerSection>
           )}
 
           {role === "ADMIN" && (
-            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
-              <h3 className="font-semibold">Assign to Agent</h3>
+            <DrawerSection title="Assign to Agent" accent="blue">
               <p className="text-xs text-[rgb(var(--muted))]">
                 Current agent: {currentAgentId ? "assigned" : "unassigned"}
               </p>
@@ -863,20 +874,24 @@ export function LeadDetailDrawer({
               >
                 {assignMutation.isPending ? "Assigning..." : "Assign to Agent"}
               </button>
-            </div>
+            </DrawerSection>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="text-sm text-red-600 rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:bg-red-950/30">
+              {error}
+            </p>
+          )}
 
           {role === "MASTER_ADMIN" && (
-            <div className="border-t border-[rgb(var(--border))] pt-4">
+            <DrawerSection title="Danger zone" accent="rose">
               <button
-                className="w-full btn-secondary text-red-600 border-red-200"
+                className="w-full btn-secondary text-red-600 border-red-200 transition-colors duration-200 hover:bg-red-50 dark:hover:bg-red-950/30"
                 onClick={() => setConfirmDelete(true)}
               >
                 Delete Lead
               </button>
-            </div>
+            </DrawerSection>
           )}
         </div>
       </div>

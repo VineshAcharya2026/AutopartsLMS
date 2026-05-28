@@ -172,3 +172,27 @@ body {
 .brand-gradient {
   @apply bg-gradient-to-r from-orange-500 via-orange-600 to-blue-600 bg-clip-text text-transparent;
 }
+
+.lead-card-interactive {
+  @apply transition-all duration-300 ease-out cursor-pointer;
+}
+
+.lead-card-interactive:hover {
+  @apply -translate-y-0.5 shadow-md;
+}
+
+.lead-card-auto:hover {
+  @apply border-orange-400 bg-orange-50/70 shadow-orange-100/50 dark:border-orange-500 dark:bg-orange-950/35 dark:shadow-orange-900/25;
+}
+
+.lead-card-generic:hover {
+  @apply border-blue-400 bg-blue-50/60 shadow-blue-100/50 dark:border-blue-600 dark:bg-blue-950/30 dark:shadow-blue-900/25;
+}
+
+.lead-remark-card {
+  @apply rounded-lg border border-transparent p-3 transition-all duration-200 ease-out;
+}
+
+.lead-remark-card:hover {
+  @apply border-orange-200 bg-orange-50/70 dark:border-orange-800/60 dark:bg-orange-950/30;
+}
