@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { RoleLayout } from "@/components/layout/RoleLayout";
-import { StatsCard } from "@/components/leads/LeadViews";
+import { DashboardPanel, DashboardRow, DashboardStatsCard } from "@/components/dashboard";
 import { apiFetch } from "@/lib/api";
 import type { DashboardStats } from "@centercrm/shared-types";
 
@@ -34,33 +34,35 @@ function AdminDashboardContent() {
   }
 
   return (
-    <div>
+    <div className="dashboard-enter">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <Link href="/admin/leads" className="btn-primary">
+        <Link href="/admin/leads" className="btn-primary transition-all duration-300 hover:shadow-md">
           My Leads
         </Link>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <StatsCard title="My Leads" value={data?.total_leads ?? 0} />
-        <StatsCard title="Unassigned to Agent" value={data?.unassigned_to_agent ?? 0} />
-        <StatsCard title="Follow-ups Today" value={data?.follow_ups_today ?? 0} />
-        <StatsCard title="Overdue Tasks" value={data?.overdue_tasks ?? 0} />
+        <DashboardStatsCard title="My Leads" value={data?.total_leads ?? 0} variant="blue" />
+        <DashboardStatsCard
+          title="Unassigned to Agent"
+          value={data?.unassigned_to_agent ?? 0}
+          variant="orange"
+        />
+        <DashboardStatsCard title="Follow-ups Today" value={data?.follow_ups_today ?? 0} variant="violet" />
+        <DashboardStatsCard title="Overdue Tasks" value={data?.overdue_tasks ?? 0} variant="rose" />
       </div>
       <div className="grid gap-4 lg:grid-cols-2 mb-8">
-        <div className="card p-5">
-          <h2 className="font-semibold mb-4">Leads by Status</h2>
-          <div className="space-y-2">
+        <DashboardPanel title="Leads by Status">
+          <div className="space-y-1">
             {Object.entries(data?.leads_by_status ?? {}).map(([status, count]) => (
-              <div key={status} className="flex justify-between text-sm">
+              <DashboardRow key={status}>
                 <span>{status}</span>
                 <span className="font-medium">{count}</span>
-              </div>
+              </DashboardRow>
             ))}
           </div>
-        </div>
-        <div className="card p-5">
-          <h2 className="font-semibold mb-4">Agent Productivity</h2>
+        </DashboardPanel>
+        <DashboardPanel title="Agent Productivity">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[rgb(var(--border))]">
@@ -71,7 +73,10 @@ function AdminDashboardContent() {
             </thead>
             <tbody>
               {data?.agent_productivity?.map((a: Record<string, unknown>) => (
-                <tr key={String(a.agent_id)} className="border-b border-[rgb(var(--border))]">
+                <tr
+                  key={String(a.agent_id)}
+                  className="border-b border-[rgb(var(--border))] transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                >
                   <td className="py-2">{String(a.name)}</td>
                   <td className="py-2">{String(a.total_leads)}</td>
                   <td className="py-2">{String(a.converted)}</td>
@@ -79,7 +84,7 @@ function AdminDashboardContent() {
               ))}
             </tbody>
           </table>
-        </div>
+        </DashboardPanel>
       </div>
     </div>
   );

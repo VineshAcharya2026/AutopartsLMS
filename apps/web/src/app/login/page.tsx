@@ -2,6 +2,7 @@
 
 import { PORTAL_THEMES } from "@/components/auth/rolePortalTheme";
 import { RolePortalCard } from "@/components/auth/RolePortalCard";
+import { APP_NAME } from "@/lib/branding";
 
 export default function LoginPickerPage() {
   return (
@@ -9,7 +10,7 @@ export default function LoginPickerPage() {
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
         <header className="portal-fade-in mb-12 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">
-            CenterCRM
+            {APP_NAME}
           </p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
             Choose your portal

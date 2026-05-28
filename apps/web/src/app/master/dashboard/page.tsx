@@ -1,9 +1,14 @@
 "use client";
 
-import Link from "next/link";
+import { Inbox, Trash2, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { RoleLayout } from "@/components/layout/RoleLayout";
-import { StatsCard } from "@/components/leads/LeadViews";
+import {
+  DashboardPanel,
+  DashboardRow,
+  DashboardStatsCard,
+  QuickActionCard,
+} from "@/components/dashboard";
 import { apiFetch } from "@/lib/api";
 import type { DashboardStats } from "@centercrm/shared-types";
 
@@ -36,53 +41,64 @@ function MasterDashboardContent() {
   }
 
   return (
-    <div>
+    <div className="dashboard-enter">
       <h1 className="text-2xl font-bold mb-6">Master Admin Dashboard</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <StatsCard title="Total Leads" value={data?.total_leads ?? 0} />
-        <StatsCard title="Unassigned to Admin" value={data?.unassigned_to_admin ?? 0} />
-        <StatsCard title="Items in Trash" value={data?.trash_count ?? 0} />
-        <StatsCard title="Converted" value={data?.converted_leads ?? 0} />
+        <DashboardStatsCard title="Total Leads" value={data?.total_leads ?? 0} variant="blue" />
+        <DashboardStatsCard
+          title="Unassigned to Admin"
+          value={data?.unassigned_to_admin ?? 0}
+          variant="orange"
+        />
+        <DashboardStatsCard title="Items in Trash" value={data?.trash_count ?? 0} variant="rose" />
+        <DashboardStatsCard title="Converted" value={data?.converted_leads ?? 0} variant="emerald" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3 mb-8">
-        <Link href="/master/leads" className="card p-4 hover:shadow-md transition-shadow">
-          <h3 className="font-semibold">Lead Center</h3>
-          <p className="text-sm text-[rgb(var(--muted))] mt-1">Route leads to admins</p>
-        </Link>
-        <Link href="/master/admins" className="card p-4 hover:shadow-md transition-shadow">
-          <h3 className="font-semibold">Manage Admins</h3>
-          <p className="text-sm text-[rgb(var(--muted))] mt-1">Create and edit admin accounts</p>
-        </Link>
-        <Link href="/master/trash" className="card p-4 hover:shadow-md transition-shadow">
-          <h3 className="font-semibold">Trash</h3>
-          <p className="text-sm text-[rgb(var(--muted))] mt-1">Restore or permanently delete</p>
-        </Link>
+        <QuickActionCard
+          href="/master/leads"
+          title="Lead Center"
+          description="Route leads to admins"
+          icon={Inbox}
+          variant="blue"
+        />
+        <QuickActionCard
+          href="/master/admins"
+          title="Manage Admins"
+          description="Create and edit admin accounts"
+          icon={Users}
+          variant="emerald"
+        />
+        <QuickActionCard
+          href="/master/trash"
+          title="Trash"
+          description="Restore or permanently delete"
+          icon={Trash2}
+          variant="rose"
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card p-5">
-          <h2 className="font-semibold mb-4">Leads by Status</h2>
-          <div className="space-y-2">
+        <DashboardPanel title="Leads by Status">
+          <div className="space-y-1">
             {Object.entries(data?.leads_by_status ?? {}).map(([status, count]) => (
-              <div key={status} className="flex justify-between text-sm">
+              <DashboardRow key={status}>
                 <span>{status}</span>
                 <span className="font-medium">{count}</span>
-              </div>
+              </DashboardRow>
             ))}
           </div>
-        </div>
-        <div className="card p-5">
-          <h2 className="font-semibold mb-4">Leads by Source</h2>
-          <div className="space-y-2">
+        </DashboardPanel>
+        <DashboardPanel title="Leads by Source">
+          <div className="space-y-1">
             {Object.entries(data?.leads_by_source ?? {}).map(([source, count]) => (
-              <div key={source} className="flex justify-between text-sm">
+              <DashboardRow key={source}>
                 <span>{source}</span>
                 <span className="font-medium">{count}</span>
-              </div>
+              </DashboardRow>
             ))}
           </div>
-        </div>
+        </DashboardPanel>
       </div>
     </div>
   );

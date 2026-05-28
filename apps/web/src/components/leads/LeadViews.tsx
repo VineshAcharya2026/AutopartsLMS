@@ -215,15 +215,7 @@ function GenericLeadCard({
   );
 }
 
-export function StatsCard({ title, value, subtitle }: { title: string; value: string | number; subtitle?: string }) {
-  return (
-    <div className="card p-5">
-      <p className="text-sm text-[rgb(var(--muted))]">{title}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
-      {subtitle && <p className="mt-1 text-xs text-[rgb(var(--muted))]">{subtitle}</p>}
-    </div>
-  );
-}
+export { DashboardStatsCard as StatsCard } from "@/components/dashboard/DashboardStatsCard";
 
 export type AssignmentMaps = {
   centerNames: Map<string, string>;

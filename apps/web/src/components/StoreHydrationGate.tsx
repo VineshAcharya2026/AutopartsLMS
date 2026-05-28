@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { APP_NAME } from "@/lib/branding";
 import { useAuthStore, useUIStore } from "@/lib/store";
 
 export function useStoreHydration() {
@@ -50,7 +51,7 @@ export function StoreHydrationGate({ children }: { children: React.ReactNode }) 
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-          <p className="text-sm text-slate-500">Loading CenterCRM...</p>
+          <p className="text-sm text-slate-500">Loading {APP_NAME}...</p>
         </div>
       </div>
     );

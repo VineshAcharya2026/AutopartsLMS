@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { RoleLayout } from "@/components/layout/RoleLayout";
-import { StatsCard } from "@/components/leads/LeadViews";
+import { DashboardPanel, DashboardRow, DashboardStatsCard } from "@/components/dashboard";
 import { apiFetch, type ApiLead } from "@/lib/api";
 import type { DashboardStats, PaginatedResponse } from "@centercrm/shared-types";
 
@@ -43,57 +43,58 @@ function AgentDashboardContent() {
   }
 
   return (
-    <div>
+    <div className="dashboard-enter">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold">Agent Dashboard</h1>
-        <Link href="/agent/leads" className="btn-primary">
+        <Link href="/agent/leads" className="btn-primary transition-all duration-300 hover:shadow-md">
           My Leads
         </Link>
       </div>
       <div className="grid gap-4 sm:grid-cols-3 mb-8">
-        <StatsCard title="My Leads" value={stats?.total_leads ?? 0} />
-        <StatsCard title="Follow-ups Today" value={stats?.follow_ups_today ?? 0} />
-        <StatsCard title="Overdue" value={stats?.overdue_tasks ?? 0} />
+        <DashboardStatsCard title="My Leads" value={stats?.total_leads ?? 0} variant="blue" />
+        <DashboardStatsCard title="Follow-ups Today" value={stats?.follow_ups_today ?? 0} variant="violet" />
+        <DashboardStatsCard title="Overdue" value={stats?.overdue_tasks ?? 0} variant="rose" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card p-5">
-          <h2 className="font-semibold mb-4">Today&apos;s Follow-ups</h2>
+        <DashboardPanel title="Today's Follow-ups" accent="blue">
           {followUpsToday.length === 0 ? (
             <p className="text-sm text-[rgb(var(--muted))]">No follow-ups scheduled for today</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {followUpsToday.slice(0, 5).map((l) => (
-                <li key={l.id} className="text-sm flex justify-between">
+                <DashboardRow key={l.id}>
                   <span>{l.name}</span>
                   <span className="text-[rgb(var(--muted))]">{l.phone || l.email}</span>
-                </li>
+                </DashboardRow>
               ))}
             </ul>
           )}
-        </div>
-        <div className="card p-5">
-          <h2 className="font-semibold mb-4 text-red-600">Overdue</h2>
+        </DashboardPanel>
+        <DashboardPanel title="Overdue" accent="rose">
           {overdue.length === 0 ? (
             <p className="text-sm text-[rgb(var(--muted))]">Nothing overdue</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {overdue.slice(0, 5).map((l) => (
-                <li key={l.id} className="text-sm flex justify-between">
+                <DashboardRow key={l.id}>
                   <span>{l.name}</span>
                   <span className="text-[rgb(var(--muted))]">
                     {l.follow_up_at ? new Date(l.follow_up_at).toLocaleDateString() : "—"}
                   </span>
-                </li>
+                </DashboardRow>
               ))}
             </ul>
           )}
           {overdue.length > 0 && (
-            <Link href="/agent/overdue" className="text-sm text-blue-600 mt-3 inline-block hover:underline">
+            <Link
+              href="/agent/overdue"
+              className="text-sm text-blue-600 mt-3 inline-block transition-colors duration-200 hover:text-blue-700 hover:underline"
+            >
               View all overdue
             </Link>
           )}
-        </div>
+        </DashboardPanel>
       </div>
     </div>
   );

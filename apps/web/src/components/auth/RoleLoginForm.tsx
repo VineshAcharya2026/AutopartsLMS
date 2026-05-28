@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import type { Role } from "@centercrm/shared-types";
 import { checkApiHealth, fetchOAuthStatus, getGoogleOAuthStartUrl, login } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
+import { APP_NAME } from "@/lib/branding";
 import { cn, getApiOrigin } from "@/lib/utils";
 import { getPortalTheme } from "./rolePortalTheme";
 
@@ -105,7 +106,7 @@ export function RoleLoginForm({ expectedRole }: { expectedRole: Role }) {
           <p className="mt-4 text-lg leading-relaxed text-white/85">{theme.description}</p>
         </div>
 
-        <p className="relative z-10 text-xs text-white/60">CenterCRM · Secure role-based access</p>
+        <p className="relative z-10 text-xs text-white/60">{APP_NAME} · Secure role-based access</p>
       </div>
 
       {/* Right login form */}

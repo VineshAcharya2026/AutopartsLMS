@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { APP_NAME, APP_TAGLINE } from "@/lib/branding";
 
 export const metadata: Metadata = {
-  title: "CenterCRM",
-  description: "Multi-role SaaS CRM for lead management",
+  title: APP_NAME,
+  description: APP_TAGLINE,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
