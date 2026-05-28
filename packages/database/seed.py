@@ -1,6 +1,7 @@
 """Seed database: 5 centers, 5 admins, 5 agents, 10 interlinked leads."""
 
 import asyncio
+from datetime import datetime, timezone
 
 import bcrypt
 from prisma import Json, Prisma
@@ -202,6 +203,15 @@ async def main() -> None:
                     "duration": 120 + i * 30,
                     "outcome": "Reached - discussed requirements",
                 }
+            )
+
+    legacy_lead_ids = ["seed-lead-1"]
+    for legacy_id in legacy_lead_ids:
+        old = await db.lead.find_first(where={"id": legacy_id, "deletedAt": None})
+        if old:
+            await db.lead.update(
+                where={"id": legacy_id},
+                data={"deletedAt": datetime.now(timezone.utc)},
             )
 
     valid_agent_ids = {agent_id(code) for code, _ in CENTERS}
