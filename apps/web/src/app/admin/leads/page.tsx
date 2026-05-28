@@ -58,7 +58,7 @@ function AdminLeadsContent() {
       {leadView === "table" && (
         <LeadTable leads={leads} onSelect={setSelected} showAssignment maps={maps} />
       )}
-      {leadView === "card" && <LeadCardGrid leads={leads} onSelect={setSelected} />}
+      {leadView === "card" && <LeadCardGrid leads={leads} onSelect={setSelected} maps={maps} />}
       {leadView === "kanban" && kanbanData && <LeadKanban columns={kanbanData} />}
       {leadView === "agent" && agentData && (
         <LeadAgentWiseView

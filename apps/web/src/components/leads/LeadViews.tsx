@@ -4,14 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Role } from "@centercrm/shared-types";
 import {
+  addRemark,
   assignLead,
   deleteLead,
   fetchAdmins,
   fetchAgents,
   fetchCenters,
+  fetchLeadActivity,
+  fetchRemarks,
+  logCall,
+  updateLead,
   userDisplayName,
   type ApiLead,
   type ApiUser,
+  type LeadActivityItem,
 } from "@/lib/api";
 import { STATUS_COLORS, cn } from "@/lib/utils";
 import {
@@ -26,6 +32,42 @@ import {
 } from "@/components/leads/autoPartsLead";
 
 export type { AnyLead } from "@/components/leads/autoPartsLead";
+
+const CLOSED_STATUSES = ["CONVERTED", "LOST", "NOT_INTERESTED", "SPAM"] as const;
+const STATUS_OPTIONS = [
+  "NEW",
+  "UNATTEMPTED",
+  "ATTEMPTED",
+  "FOLLOW_UP",
+  "INTERESTED",
+  "CALLBACK",
+  "NOT_INTERESTED",
+  "CONVERTED",
+  "LOST",
+  "SPAM",
+] as const;
+
+function AssignmentLine({
+  maps,
+  lead,
+}: {
+  maps?: AssignmentMaps;
+  lead: AnyLead;
+}) {
+  if (!maps) return null;
+  const centerId = leadField<string | null>(lead, "center_id", "centerId");
+  const adminId = leadField<string | null>(lead, "assigned_admin_id", "assignedAdminId");
+  const agentId = leadField<string | null>(lead, "assigned_agent_id", "assignedAgentId");
+  return (
+    <p className="text-xs text-[rgb(var(--muted))] mt-2">
+      {centerId ? maps.centerNames.get(centerId) : "No center"}
+      {" · "}
+      {adminId ? maps.adminNames.get(adminId) : "No admin"}
+      {" · "}
+      {agentId ? maps.agentNames.get(agentId) : "No agent"}
+    </p>
+  );
+}
 
 export function LeadStatusBadge({ status }: { status: string }) {
   return (
@@ -70,10 +112,12 @@ export function AutoPartsLeadCard({
   lead,
   onSelect,
   compact = false,
+  maps,
 }: {
   lead: AnyLead;
   onSelect?: (lead: AnyLead) => void;
   compact?: boolean;
+  maps?: AssignmentMaps;
 }) {
   const meta = getAutoPartsMeta(lead);
   const partName = partNameForLead(lead, meta);
@@ -92,6 +136,7 @@ export function AutoPartsLeadCard({
           <LeadStatusBadge status={String(lead.status)} />
         </div>
         <p className="text-xs text-[rgb(var(--muted))] mt-2">{String(lead.name)}</p>
+        <AssignmentLine maps={maps} lead={lead} />
       </div>
     );
   }
@@ -125,6 +170,7 @@ export function AutoPartsLeadCard({
           {timeline ? ` · ${timeline}` : ""}
         </p>
         {meta.vin && <p className="text-xs font-mono text-[rgb(var(--muted))]">VIN: {meta.vin}</p>}
+        <AssignmentLine maps={maps} lead={lead} />
       </div>
 
       <div className="mt-3 pt-3 border-t border-[rgb(var(--border))] flex justify-between text-xs text-[rgb(var(--muted))]">
@@ -140,7 +186,15 @@ export function AutoPartsLeadCard({
   );
 }
 
-function GenericLeadCard({ lead, onSelect }: { lead: AnyLead; onSelect?: (lead: AnyLead) => void }) {
+function GenericLeadCard({
+  lead,
+  onSelect,
+  maps,
+}: {
+  lead: AnyLead;
+  onSelect?: (lead: AnyLead) => void;
+  maps?: AssignmentMaps;
+}) {
   return (
     <div
       className="card p-4 cursor-pointer hover:shadow-md transition-shadow"
@@ -156,6 +210,7 @@ function GenericLeadCard({ lead, onSelect }: { lead: AnyLead; onSelect?: (lead: 
       <p className="mt-1 text-xs text-[rgb(var(--muted))]">
         {String(leadField(lead, "source", "source") || "—")} · {String(leadField(lead, "city", "city") || "No city")}
       </p>
+      <AssignmentLine maps={maps} lead={lead} />
     </div>
   );
 }
@@ -319,14 +374,22 @@ export function LeadTable({
   );
 }
 
-export function LeadCardGrid({ leads, onSelect }: { leads: AnyLead[]; onSelect?: (lead: AnyLead) => void }) {
+export function LeadCardGrid({
+  leads,
+  onSelect,
+  maps,
+}: {
+  leads: AnyLead[];
+  onSelect?: (lead: AnyLead) => void;
+  maps?: AssignmentMaps;
+}) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {leads.map((lead) =>
         isAutoPartsLead(lead) ? (
-          <AutoPartsLeadCard key={String(lead.id)} lead={lead} onSelect={onSelect} />
+          <AutoPartsLeadCard key={String(lead.id)} lead={lead} onSelect={onSelect} maps={maps} />
         ) : (
-          <GenericLeadCard key={String(lead.id)} lead={lead} onSelect={onSelect} />
+          <GenericLeadCard key={String(lead.id)} lead={lead} onSelect={onSelect} maps={maps} />
         )
       )}
     </div>
@@ -422,25 +485,63 @@ export function ViewSwitcher({
   );
 }
 
+function ActivityTimeline({ items }: { items: LeadActivityItem[] }) {
+  if (!items.length) {
+    return <p className="text-sm text-[rgb(var(--muted))]">No activity yet.</p>;
+  }
+  return (
+    <ul className="space-y-3 max-h-64 overflow-y-auto">
+      {items.map((item) => (
+        <li key={item.id} className="text-sm border-l-2 border-blue-200 pl-3 dark:border-blue-800">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-xs uppercase text-[rgb(var(--muted))]">
+              {item.channel}
+              {item.actor_name ? ` · ${item.actor_name}` : ""}
+            </span>
+            <span className="text-xs text-[rgb(var(--muted))] shrink-0">
+              {new Date(item.created_at).toLocaleString()}
+            </span>
+          </div>
+          <p className="font-medium mt-0.5">{item.title}</p>
+          {item.body && <p className="text-[rgb(var(--muted))] mt-0.5">{item.body}</p>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function LeadDetailDrawer({
   lead,
   open,
   onClose,
   role,
   onAssigned,
+  maps: mapsProp,
 }: {
   lead: AnyLead | null;
   open: boolean;
   onClose: () => void;
   role?: Role;
   onAssigned?: () => void;
+  maps?: AssignmentMaps;
 }) {
   const queryClient = useQueryClient();
+  const internalMaps = useAssignmentMaps(open);
+  const maps = mapsProp ?? internalMaps;
+  const leadId = lead ? String(lead.id) : "";
+
   const [centerId, setCenterId] = useState("");
   const [adminId, setAdminId] = useState("");
   const [agentId, setAgentId] = useState("");
+  const [status, setStatus] = useState("");
+  const [closeRemark, setCloseRemark] = useState("");
+  const [clientUpdate, setClientUpdate] = useState("");
+  const [newRemark, setNewRemark] = useState("");
+  const [callOutcome, setCallOutcome] = useState("Reached — discussed requirements");
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const canWorkLead = role === "MASTER_ADMIN" || role === "ADMIN" || role === "AGENT";
 
   const { data: centers } = useQuery({
     queryKey: ["centers"],
@@ -457,34 +558,87 @@ export function LeadDetailDrawer({
     queryFn: fetchAgents,
     enabled: open && (role === "MASTER_ADMIN" || role === "ADMIN"),
   });
+  const { data: remarks } = useQuery({
+    queryKey: ["lead-remarks", leadId],
+    queryFn: () => fetchRemarks(leadId),
+    enabled: open && !!leadId && canWorkLead,
+  });
+  const { data: activity } = useQuery({
+    queryKey: ["lead-activity", leadId],
+    queryFn: () => fetchLeadActivity(leadId),
+    enabled: open && !!leadId && canWorkLead,
+  });
+
+  const invalidateLeads = () => {
+    queryClient.invalidateQueries({ queryKey: ["leads"] });
+    queryClient.invalidateQueries({ queryKey: ["leads-kanban"] });
+    queryClient.invalidateQueries({ queryKey: ["leads-agent"] });
+    queryClient.invalidateQueries({ queryKey: ["agent-leads"] });
+    if (leadId) {
+      queryClient.invalidateQueries({ queryKey: ["lead-remarks", leadId] });
+      queryClient.invalidateQueries({ queryKey: ["lead-activity", leadId] });
+    }
+  };
 
   useEffect(() => {
     if (!lead) return;
     setCenterId(leadField<string | null>(lead, "center_id", "centerId") || "");
     setAdminId(leadField<string | null>(lead, "assigned_admin_id", "assignedAdminId") || "");
     setAgentId(leadField<string | null>(lead, "assigned_agent_id", "assignedAgentId") || "");
+    setStatus(String(lead.status));
+    setCloseRemark("");
+    setClientUpdate("");
+    setNewRemark("");
     setError(null);
   }, [lead]);
 
   const assignMutation = useMutation({
     mutationFn: (data: { center_id?: string; assigned_admin_id?: string; assigned_agent_id?: string }) =>
-      assignLead(String(lead?.id), data),
+      assignLead(leadId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
-      queryClient.invalidateQueries({ queryKey: ["leads-kanban"] });
-      queryClient.invalidateQueries({ queryKey: ["leads-agent"] });
+      invalidateLeads();
       onAssigned?.();
-      onClose();
     },
     onError: (err: Error) => setError(err.message),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteLead(String(lead?.id)),
+  const updateMutation = useMutation({
+    mutationFn: () => {
+      const payload: Parameters<typeof updateLead>[1] = {};
+      if (status && status !== String(lead?.status)) payload.status = status;
+      if (clientUpdate.trim()) payload.client_update = clientUpdate.trim();
+      if (CLOSED_STATUSES.includes(status as (typeof CLOSED_STATUSES)[number])) {
+        payload.remark = closeRemark.trim();
+      }
+      return updateLead(leadId, payload);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
-      queryClient.invalidateQueries({ queryKey: ["leads-kanban"] });
-      queryClient.invalidateQueries({ queryKey: ["leads-agent"] });
+      invalidateLeads();
+      setCloseRemark("");
+      setClientUpdate("");
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const remarkMutation = useMutation({
+    mutationFn: () => addRemark(leadId, newRemark.trim()),
+    onSuccess: () => {
+      setNewRemark("");
+      invalidateLeads();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const callMutation = useMutation({
+    mutationFn: () => logCall(leadId, { outcome: callOutcome, duration: 60 }),
+    onSuccess: () => invalidateLeads(),
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteLead(leadId),
+    onSuccess: () => {
+      invalidateLeads();
       queryClient.invalidateQueries({ queryKey: ["trash"] });
       setConfirmDelete(false);
       onClose();
@@ -502,12 +656,16 @@ export function LeadDetailDrawer({
   const currentCenterId = leadField<string | null>(lead, "center_id", "centerId");
   const currentAdminId = leadField<string | null>(lead, "assigned_admin_id", "assignedAdminId");
   const currentAgentId = leadField<string | null>(lead, "assigned_agent_id", "assignedAgentId");
+  const closing = CLOSED_STATUSES.includes(status as (typeof CLOSED_STATUSES)[number]);
+  const rawMeta = leadField<Record<string, unknown>>(lead, "metadata", "metadata") ?? {};
+  const lastClient =
+    typeof rawMeta.last_client_update === "string" ? rawMeta.last_client_update : undefined;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-[rgb(var(--card))] shadow-xl overflow-y-auto">
-        <div className="sticky top-0 flex items-center justify-between border-b border-[rgb(var(--border))] p-4 bg-[rgb(var(--card))]">
+        <div className="sticky top-0 flex items-center justify-between border-b border-[rgb(var(--border))] p-4 bg-[rgb(var(--card))] z-10">
           <h2 className="text-lg font-semibold">{String(lead.name)}</h2>
           <button onClick={onClose} className="btn-secondary !px-2 !py-1">
             Close
@@ -517,6 +675,7 @@ export function LeadDetailDrawer({
           <AutoPartsDetailSection lead={lead} />
           <div>
             <LeadStatusBadge status={String(lead.status)} />
+            <AssignmentLine maps={maps} lead={lead} />
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
@@ -548,6 +707,102 @@ export function LeadDetailDrawer({
             <div className="text-sm">
               <span className="text-[rgb(var(--muted))]">Message</span>
               <p className="mt-1">{String(leadField(lead, "message", "message"))}</p>
+            </div>
+          )}
+          {lastClient && (
+            <div className="text-sm rounded-lg bg-slate-50 dark:bg-slate-900 p-3">
+              <span className="text-[rgb(var(--muted))]">Last client response</span>
+              <p className="mt-1">{lastClient}</p>
+            </div>
+          )}
+
+          {canWorkLead && (
+            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
+              <h3 className="font-semibold">Update lead</h3>
+              <div>
+                <label className="block text-sm mb-1">Status</label>
+                <select className="input w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s.replace("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {closing && (
+                <div>
+                  <label className="block text-sm mb-1 text-red-600">Closing remark (required)</label>
+                  <textarea
+                    className="input w-full min-h-[80px]"
+                    value={closeRemark}
+                    onChange={(e) => setCloseRemark(e.target.value)}
+                    placeholder="Why is this lead being closed?"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm mb-1">Client response</label>
+                <textarea
+                  className="input w-full min-h-[60px]"
+                  value={clientUpdate}
+                  onChange={(e) => setClientUpdate(e.target.value)}
+                  placeholder="What did the client say?"
+                />
+              </div>
+              <button
+                className="btn-primary w-full"
+                disabled={
+                  updateMutation.isPending ||
+                  (closing && !closeRemark.trim()) ||
+                  (status === String(lead.status) && !clientUpdate.trim())
+                }
+                onClick={() => updateMutation.mutate()}
+              >
+                {updateMutation.isPending ? "Saving..." : "Save update"}
+              </button>
+              <button
+                className="btn-secondary w-full"
+                disabled={callMutation.isPending}
+                onClick={() => callMutation.mutate()}
+              >
+                {callMutation.isPending ? "Logging..." : "Log outbound call"}
+              </button>
+            </div>
+          )}
+
+          {canWorkLead && (
+            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
+              <h3 className="font-semibold">Remarks</h3>
+              <ul className="space-y-2 max-h-40 overflow-y-auto">
+                {(remarks ?? []).map((r) => (
+                  <li key={r.id} className="text-sm rounded-lg bg-slate-50 dark:bg-slate-900 p-2">
+                    <p className="text-xs text-[rgb(var(--muted))]">
+                      {r.author_name || "Agent"} · {new Date(r.created_at).toLocaleString()}
+                    </p>
+                    <p className="mt-1">{r.body}</p>
+                  </li>
+                ))}
+              </ul>
+              <textarea
+                className="input w-full min-h-[60px]"
+                value={newRemark}
+                onChange={(e) => setNewRemark(e.target.value)}
+                placeholder="Add a remark..."
+              />
+              <button
+                className="btn-secondary w-full"
+                disabled={!newRemark.trim() || remarkMutation.isPending}
+                onClick={() => remarkMutation.mutate()}
+              >
+                {remarkMutation.isPending ? "Adding..." : "Add remark"}
+              </button>
+            </div>
+          )}
+
+          {canWorkLead && (
+            <div className="border-t border-[rgb(var(--border))] pt-4 space-y-3">
+              <h3 className="font-semibold">Activity timeline</h3>
+              <ActivityTimeline items={activity ?? []} />
             </div>
           )}
 

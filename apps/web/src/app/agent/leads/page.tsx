@@ -18,7 +18,7 @@ function AgentLeadsContent() {
     <div>
       <h1 className="text-2xl font-bold mb-6">My Assigned Leads</h1>
       <LeadTable leads={data?.items ?? []} onSelect={(lead) => setSelected(lead as Lead)} />
-      <LeadDetailDrawer lead={selected} open={!!selected} onClose={() => setSelected(null)} />
+      <LeadDetailDrawer lead={selected} open={!!selected} onClose={() => setSelected(null)} role="AGENT" />
     </div>
   );
 }

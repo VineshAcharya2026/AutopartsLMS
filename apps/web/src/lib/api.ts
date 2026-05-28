@@ -273,3 +273,68 @@ export async function restoreTrash(recordId: string) {
 export async function purgeTrash(recordId: string) {
   return apiFetch<{ message: string }>(`/trash/${recordId}/purge`, { method: "DELETE" });
 }
+
+export type ApiRemark = {
+  id: string;
+  lead_id: string;
+  author_id: string;
+  author_name?: string | null;
+  body: string;
+  created_at: string;
+};
+
+export type LeadActivityItem = {
+  id: string;
+  channel: string;
+  direction: string;
+  title: string;
+  body: string;
+  status: string | null;
+  actor_name: string | null;
+  created_at: string;
+};
+
+export async function fetchRemarks(leadId: string) {
+  return apiFetch<ApiRemark[]>(`/leads/${leadId}/remarks`);
+}
+
+export async function addRemark(leadId: string, body: string) {
+  return apiFetch<ApiRemark>(`/leads/${leadId}/remarks`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function fetchLeadActivity(leadId: string) {
+  return apiFetch<LeadActivityItem[]>(`/leads/${leadId}/activity`);
+}
+
+export async function updateLead(
+  leadId: string,
+  data: Partial<{
+    status: string;
+    remark: string;
+    client_update: string;
+    increment_attempt: boolean;
+    attempt_outcome: string;
+    follow_up_at: string;
+    priority: number;
+  }>
+) {
+  return apiFetch<ApiLead>(`/leads/${leadId}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export async function logCall(
+  leadId: string,
+  data: { direction?: string; duration?: number; outcome?: string }
+) {
+  return apiFetch<{
+    id: string;
+    lead_id: string;
+    direction: string;
+    duration: number;
+    outcome: string;
+    created_at: string;
+    lead_status: string;
+  }>(`/leads/${leadId}/calls`, { method: "POST", body: JSON.stringify(data) });
+}

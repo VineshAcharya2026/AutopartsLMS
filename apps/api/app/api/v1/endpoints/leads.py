@@ -1,10 +1,11 @@
 import os
 import uuid
+from datetime import datetime, timezone
 
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from prisma import Prisma
-from prisma.enums import FollowUpStatus, LeadSource, LeadStatus, Role
+from prisma.enums import CommDirection, FollowUpStatus, LeadSource, LeadStatus, Role
 
 from app.core.audit import emit_audit
 from app.core.deps import get_client_ip, get_current_user, get_lead_scoped
@@ -12,11 +13,13 @@ from app.core.permissions import require_roles
 from app.db.prisma_client import get_db
 from app.db.prisma_json import to_prisma_json
 from app.modules.ingestion.csv_import import import_leads_from_csv
+from app.modules.leads.activity import TERMINAL_STATUSES, build_lead_activity_timeline
 from app.modules.leads.service import get_agent_wise_view, get_kanban_view, list_leads, soft_delete_lead
 from app.modules.notifications.service import notify_lead_assignment
 from app.schemas.common import (
     FollowUpCreate,
     FollowUpResponse,
+    CallLogCreate,
     LeadAssignRequest,
     LeadCreate,
     LeadResponse,
@@ -124,6 +127,14 @@ async def update_lead(
     lead = await get_lead_scoped(lead_id, user, db)
     before = serialize_lead(lead)
 
+    new_status = LeadStatus(payload.status) if payload.status is not None else None
+    if new_status is not None and new_status in TERMINAL_STATUSES:
+        if not payload.remark or not payload.remark.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A remark is required before closing or marking a lead as lost/spam",
+            )
+
     data = {}
     if payload.name is not None:
         data["name"] = payload.name
@@ -131,8 +142,8 @@ async def update_lead(
         data["phone"] = normalize_phone(payload.phone)
     if payload.email is not None:
         data["email"] = normalize_email(payload.email)
-    if payload.status is not None:
-        data["status"] = LeadStatus(payload.status)
+    if new_status is not None:
+        data["status"] = new_status
     if payload.priority is not None:
         data["priority"] = payload.priority
     if payload.assigned_admin_id is not None and user.role in (Role.MASTER_ADMIN, Role.ADMIN):
@@ -157,7 +168,18 @@ async def update_lead(
         if payload.attempt_outcome == "UNREACHABLE" and lead.status == LeadStatus.UNATTEMPTED:
             data["status"] = LeadStatus.UNATTEMPTED
 
+    if payload.client_update:
+        meta = dict(lead.metadata or {}) if isinstance(lead.metadata, dict) else {}
+        meta["last_client_update"] = payload.client_update.strip()
+        meta["last_client_update_at"] = datetime.now(timezone.utc).isoformat()
+        data["metadata"] = to_prisma_json(meta)
+
     updated = await db.lead.update(where={"id": lead_id}, data=data)
+
+    if payload.remark and payload.remark.strip():
+        await db.remark.create(
+            data={"leadId": lead_id, "authorId": user.id, "body": payload.remark.strip()}
+        )
     await emit_audit(db, actor_id=user.id, action="LEAD_UPDATED", entity_type="Lead", entity_id=lead_id, before=before, after=serialize_lead(updated), ip_address=get_client_ip(request))
     return LeadResponse(**serialize_lead(updated))
 
@@ -237,6 +259,21 @@ async def assign_lead(
     return serialize_lead(updated)
 
 
+async def _remark_response(db: Prisma, remark) -> RemarkResponse:
+    author = await db.user.find_first(where={"id": remark.authorId})
+    author_name = None
+    if author:
+        author_name = f"{author.firstName} {author.lastName}".strip() or author.email
+    return RemarkResponse(
+        id=remark.id,
+        lead_id=remark.leadId,
+        author_id=remark.authorId,
+        author_name=author_name,
+        body=remark.body,
+        created_at=remark.createdAt,
+    )
+
+
 @router.post("/{lead_id}/remarks", response_model=RemarkResponse)
 async def add_remark(
     lead_id: str,
@@ -245,24 +282,70 @@ async def add_remark(
     user=Depends(get_current_user),
 ):
     await get_lead_scoped(lead_id, user, db)
-    remark = await db.remark.create(data={"leadId": lead_id, "authorId": user.id, "body": payload.body})
-    return RemarkResponse(
-        id=remark.id,
-        lead_id=remark.leadId,
-        author_id=remark.authorId,
-        body=remark.body,
-        created_at=remark.createdAt,
+    if not payload.body.strip():
+        raise HTTPException(status_code=400, detail="Remark cannot be empty")
+    remark = await db.remark.create(
+        data={"leadId": lead_id, "authorId": user.id, "body": payload.body.strip()}
     )
+    return await _remark_response(db, remark)
 
 
 @router.get("/{lead_id}/remarks")
 async def list_remarks(lead_id: str, db: Prisma = Depends(get_db), user=Depends(get_current_user)):
     await get_lead_scoped(lead_id, user, db)
     remarks = await db.remark.find_many(where={"leadId": lead_id, "deletedAt": None}, order={"createdAt": "desc"})
-    return [
-        {"id": r.id, "lead_id": r.leadId, "author_id": r.authorId, "body": r.body, "created_at": r.createdAt}
-        for r in remarks
-    ]
+    return [await _remark_response(db, r) for r in remarks]
+
+
+@router.get("/{lead_id}/activity")
+async def lead_activity(lead_id: str, db: Prisma = Depends(get_db), user=Depends(get_current_user)):
+    await get_lead_scoped(lead_id, user, db)
+    return await build_lead_activity_timeline(db, lead_id)
+
+
+@router.post("/{lead_id}/calls")
+async def log_call(
+    lead_id: str,
+    payload: CallLogCreate,
+    request: Request,
+    db: Prisma = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    await get_lead_scoped(lead_id, user, db)
+    direction = CommDirection(payload.direction) if payload.direction in ("INBOUND", "OUTBOUND") else CommDirection.OUTBOUND
+    call = await db.calllog.create(
+        data={
+            "leadId": lead_id,
+            "direction": direction,
+            "duration": max(0, payload.duration),
+            "outcome": payload.outcome or "Completed",
+        }
+    )
+    lead = await db.lead.update(
+        where={"id": lead_id},
+        data={
+            "attemptCount": lead.attemptCount + 1,
+            "status": LeadStatus.ATTEMPTED,
+        },
+    )
+    await emit_audit(
+        db,
+        actor_id=user.id,
+        action="LEAD_CALL_LOGGED",
+        entity_type="Lead",
+        entity_id=lead_id,
+        after={"call_id": call.id, "outcome": call.outcome},
+        ip_address=get_client_ip(request),
+    )
+    return {
+        "id": call.id,
+        "lead_id": call.leadId,
+        "direction": str(call.direction),
+        "duration": call.duration,
+        "outcome": call.outcome,
+        "created_at": call.createdAt,
+        "lead_status": str(lead.status),
+    }
 
 
 @router.post("/{lead_id}/follow-ups", response_model=FollowUpResponse)

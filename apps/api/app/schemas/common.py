@@ -135,6 +135,20 @@ class LeadUpdate(BaseModel):
     metadata: dict[str, Any] | None = None
     increment_attempt: bool = False
     attempt_outcome: str | None = None
+    remark: str | None = Field(
+        default=None,
+        description="Required when moving to a closed status (CONVERTED, LOST, NOT_INTERESTED, SPAM)",
+    )
+    client_update: str | None = Field(
+        default=None,
+        description="Summary of client response; stored in metadata.last_client_update",
+    )
+
+
+class CallLogCreate(BaseModel):
+    direction: str = "OUTBOUND"
+    duration: int = 0
+    outcome: str | None = None
 
 
 class LeadAssignRequest(BaseModel):
@@ -177,6 +191,7 @@ class RemarkCreate(BaseModel):
 
 class RemarkResponse(BaseModel):
     id: str
+    author_name: str | None = None
     lead_id: str
     author_id: str
     body: str
